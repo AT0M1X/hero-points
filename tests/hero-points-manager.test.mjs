@@ -12,7 +12,7 @@ globalThis.game = {
     }
 };
 
-const { managerMarkup } = await import("../scripts/hero-points.js");
+const { heroPointSlotsMarkup, managerMarkup } = await import("../scripts/hero-points.js");
 
 function mockActor({ id, name, hasPlayerOwner, inUse, persistent = 0, ephemeral = 0 }) {
     return {
@@ -63,4 +63,17 @@ test("manager separates award and roster concerns", () => {
     assert.match(markup, /Retired Hero/);
     assert.match(markup, /<details class="hero-points-roster-section hero-points-inactive-section"/);
     assert.doesNotMatch(markup, /hero-points-inactive-section"[^>]* open/);
+});
+
+test("character-sheet slots show session, persistent, and empty capacity", () => {
+    const markup = heroPointSlotsMarkup({ ephemeral: 2, persistent: 1 }, 5);
+
+    assert.equal((markup.match(/hero-points-slot-session/g) || []).length, 2);
+    assert.equal((markup.match(/hero-points-slot-persistent/g) || []).length, 1);
+    assert.equal((markup.match(/hero-points-slot-empty/g) || []).length, 2);
+    assert.ok(markup.indexOf("slot-session") < markup.indexOf("slot-persistent"));
+    assert.ok(markup.indexOf("slot-persistent") < markup.indexOf("slot-empty"));
+
+    const maximumMarkup = heroPointSlotsMarkup({ ephemeral: 0, persistent: 0 }, 10);
+    assert.equal((maximumMarkup.match(/hero-points-slot-empty/g) || []).length, 10);
 });

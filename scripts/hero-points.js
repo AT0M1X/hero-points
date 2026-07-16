@@ -51,8 +51,30 @@ function getCharacterRoster() {
         .sort((left, right) => left.name.localeCompare(right.name));
 }
 
-function heroPointTooltip(state) {
-    return `Click to spend a hero point. Session: ${state.ephemeral}; persistent: ${state.persistent}.`;
+function heroPointTooltip(state, max) {
+    const total = getHeroPointTotal(state, max);
+    const empty = Math.max(0, max - total);
+    const nextPoint = state.ephemeral > 0 ? "session" : "persistent";
+    const action = total > 0 ? `Click to spend a ${nextPoint} point.` : "No hero points available.";
+    return `Hero points: ${total}/${max}. Session: ${state.ephemeral}; persistent: ${state.persistent}; empty: ${empty}. ${action}`;
+}
+
+export function heroPointSlotsMarkup(state, maximum) {
+    const max = Math.max(0, Math.trunc(Number(maximum) || 0));
+    const normalized = normalizeHeroPointState(state, max);
+    const slots = [];
+
+    for (let index = 0; index < normalized.ephemeral; index += 1) {
+        slots.push('<span class="hero-points-slot hero-points-slot-session"></span>');
+    }
+    for (let index = 0; index < normalized.persistent; index += 1) {
+        slots.push('<span class="hero-points-slot hero-points-slot-persistent"></span>');
+    }
+    for (let index = normalized.ephemeral + normalized.persistent; index < max; index += 1) {
+        slots.push('<span class="hero-points-slot hero-points-slot-empty"></span>');
+    }
+
+    return slots.join("");
 }
 
 function statesMatch(left, right) {
@@ -117,14 +139,16 @@ function createHeroPointsElement(actor) {
     const max = getMaxHeroPoints();
     const state = getHeroPointState(actor);
     const current = getHeroPointTotal(state, max);
-    const tooltip = heroPointTooltip(state);
+    const tooltip = heroPointTooltip(state, max);
 
     const html = `
     <div class="hero-points-counter" data-actor-id="${actor.id}" title="${tooltip}">
-      <a class="hero-points-use" data-action="use-hero-point">
+      <a class="hero-points-use" data-action="use-hero-point" aria-label="${tooltip}">
         <i class="fas fa-star hero-points-icon"></i>
-        <span class="hero-points-value">${current}</span>
-        <span class="hero-points-max">/${max}</span>
+        <span class="hero-points-number">
+          <span class="hero-points-value">${current}</span><span class="hero-points-max">/${max}</span>
+        </span>
+        <span class="hero-points-slots" aria-hidden="true">${heroPointSlotsMarkup(state, max)}</span>
       </a>
     </div>
   `;
@@ -142,11 +166,15 @@ function attachHeroPointsListeners(sheet, root) {
 
     const valueSpan = counter.find(".hero-points-value");
     const useButton = counter.find(".hero-points-use");
+    const slots = counter.find(".hero-points-slots");
     const max = getMaxHeroPoints();
 
     function syncDisplay(state) {
+        const tooltip = heroPointTooltip(state, max);
         valueSpan.text(getHeroPointTotal(state, max));
-        counter.attr("title", heroPointTooltip(state));
+        slots.html(heroPointSlotsMarkup(state, max));
+        counter.attr("title", tooltip);
+        useButton.attr("aria-label", tooltip);
     }
 
     // Spend hero point (any owner can do this)

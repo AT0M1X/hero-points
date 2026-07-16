@@ -6,7 +6,8 @@ Hero Points is a small [Foundry Virtual Tabletop](https://foundryvtt.com/) modul
 
 - Configurable maximum hero points per character.
 - Separate session (ephemeral) and persistent hero-point pools under one shared maximum.
-- Click the character-sheet counter to spend session points before persistent points.
+- Larger character-sheet pill with blue session, gold persistent, and grey unused-capacity slots.
+- Click the character-sheet pill to spend session points before persistent points.
 - Chat messages respect the current roll mode.
 - Persistent awards replace session points when necessary instead of being lost at the maximum.
 - Persistent per-character roster status with drag-and-drop organization.

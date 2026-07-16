@@ -24,6 +24,7 @@ Hero Points is a small Foundry Virtual Tabletop module for the DnD5e system. It 
 - When roster status has never been stored, player-owned character actors default to active and unowned character actors default to inactive.
 - The maximum is a world-scoped setting named `hero-points.maxPoints` and applies to the combined point pools.
 - Ephemeral points are always spent first. Positive persistent awards may replace ephemeral points at the maximum, but ephemeral awards never replace persistent points.
+- The character-sheet pill renders one visual slot per point of maximum capacity: ephemeral first, persistent second, then unused capacity.
 - Preserve the DnD5e-only guard and character-only guard when changing sheet injection behavior.
 - Do not claim compatibility with a Foundry or DnD5e version until it has been exercised in that version.
 - Run `node --test` after changing point-state rules or manager markup.
