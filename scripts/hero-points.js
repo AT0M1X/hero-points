@@ -330,7 +330,8 @@ function openHeroPointsDialog() {
         return;
     }
 
-    new Dialog({
+    let managerDialog;
+    managerDialog = new Dialog({
         title: "Hero Points",
         content: managerMarkup(actors, max),
         buttons: {
@@ -340,6 +341,10 @@ function openHeroPointsDialog() {
         },
         render: (html) => {
             const awardList = html.find(".hero-points-award-list");
+
+            function resizeManagerDialog() {
+                requestAnimationFrame(() => managerDialog.setPosition({ height: "auto" }));
+            }
 
             function sortRows(container, selector) {
                 const rows = container.children(selector).get();
@@ -385,6 +390,7 @@ function openHeroPointsDialog() {
                 html.find("[data-award-count]").text(awardCount);
                 html.find("[data-empty-awards]").toggleClass("visible", awardCount === 0);
                 updateAwardSelection();
+                resizeManagerDialog();
             }
 
             async function moveRosterActor(actorId, targetInUse) {
@@ -429,7 +435,10 @@ function openHeroPointsDialog() {
                 $(event.currentTarget).addClass("active").attr("aria-selected", "true");
                 html.find("[data-panel]").prop("hidden", true);
                 html.find(`[data-panel="${tab}"]`).prop("hidden", false);
+                resizeManagerDialog();
             });
+
+            html.find("details").on("toggle", resizeManagerDialog);
 
             html.find("[data-select-awards]").on("click", (event) => {
                 const checked = event.currentTarget.dataset.selectAwards === "all";
@@ -544,8 +553,10 @@ function openHeroPointsDialog() {
             updateAwardSelection();
         }
     }, {
-        width: 640
-    }).render(true);
+        width: 640,
+        classes: ["hero-points-manager-dialog"]
+    });
+    managerDialog.render(true);
 }
 
 function openSessionStartDialog(onComplete) {

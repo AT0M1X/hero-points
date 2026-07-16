@@ -91,6 +91,17 @@
 }
 
 /* Hero Points manager */
+.hero-points-manager-dialog .dialog-buttons {
+    flex: 0 0 auto !important;
+    height: auto !important;
+    min-height: 32px;
+}
+
+.hero-points-manager-dialog .dialog-buttons .dialog-button {
+    height: 32px;
+    min-height: 32px;
+}
+
 .hero-points-manager {
     display: flex;
     flex-direction: column;
