@@ -260,12 +260,16 @@ function attachHeroPointsListeners(sheet, root) {
             return;
         }
 
-        const alreadyActive = counter.hasClass("hero-points-feedback-active");
+        const shouldAnimateEntrance = !counter.hasClass("hero-points-feedback-active") && !feedback.animated;
         counter.removeClass(feedbackClasses.join(" "));
-        counter.addClass(heroPointFeedbackClasses(feedback).trim());
-        if (alreadyActive && !feedback.animated) {
-            counter.removeClass("hero-points-feedback-restored");
+
+        // The feedback markup and state class are otherwise applied in the same
+        // render cycle, which lets browsers skip the entrance transition.
+        if (shouldAnimateEntrance && counter[0]) {
+            void counter[0].offsetWidth;
         }
+
+        counter.addClass(heroPointFeedbackClasses(feedback).trim());
         feedback.animated = true;
 
         const remainingDuration = Math.max(0, feedback.expiresAt - Date.now());
