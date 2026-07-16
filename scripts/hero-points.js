@@ -77,6 +77,30 @@ export function heroPointSlotsMarkup(state, maximum) {
     return slots.join("");
 }
 
+export function heroPointPopoverMarkup(state, maximum) {
+    const max = Math.max(0, Math.trunc(Number(maximum) || 0));
+    const normalized = normalizeHeroPointState(state, max);
+    const total = getHeroPointTotal(normalized, max);
+    const empty = Math.max(0, max - total);
+
+    return `
+      <span class="hero-points-popover-bars" aria-hidden="true">
+        <span class="hero-points-slots">${heroPointSlotsMarkup(normalized, max)}</span>
+      </span>
+      <span class="hero-points-popover-breakdown">
+        <span class="hero-points-popover-stat hero-points-popover-session">
+          <strong>${normalized.ephemeral}</strong><span>Session</span>
+        </span>
+        <span class="hero-points-popover-stat hero-points-popover-persistent">
+          <strong>${normalized.persistent}</strong><span>Persistent</span>
+        </span>
+        <span class="hero-points-popover-stat hero-points-popover-empty">
+          <strong>${empty}</strong><span>Empty</span>
+        </span>
+      </span>
+    `;
+}
+
 function statesMatch(left, right) {
     return left.persistent === right.persistent && left.ephemeral === right.ephemeral;
 }
@@ -142,13 +166,13 @@ function createHeroPointsElement(actor) {
     const tooltip = heroPointTooltip(state, max);
 
     const html = `
-    <div class="hero-points-counter" data-actor-id="${actor.id}" title="${tooltip}">
-      <a class="hero-points-use" data-action="use-hero-point" aria-label="${tooltip}">
+    <div class="hero-points-counter" data-actor-id="${actor.id}">
+      <a class="hero-points-use" data-action="use-hero-point" role="button" tabindex="0" aria-label="${tooltip}">
         <i class="fas fa-star hero-points-icon"></i>
         <span class="hero-points-number">
           <span class="hero-points-value">${current}</span><span class="hero-points-max">/${max}</span>
         </span>
-        <span class="hero-points-slots" aria-hidden="true">${heroPointSlotsMarkup(state, max)}</span>
+        <span class="hero-points-popover" aria-hidden="true">${heroPointPopoverMarkup(state, max)}</span>
       </a>
     </div>
   `;
@@ -166,14 +190,13 @@ function attachHeroPointsListeners(sheet, root) {
 
     const valueSpan = counter.find(".hero-points-value");
     const useButton = counter.find(".hero-points-use");
-    const slots = counter.find(".hero-points-slots");
+    const popover = counter.find(".hero-points-popover");
     const max = getMaxHeroPoints();
 
     function syncDisplay(state) {
         const tooltip = heroPointTooltip(state, max);
         valueSpan.text(getHeroPointTotal(state, max));
-        slots.html(heroPointSlotsMarkup(state, max));
-        counter.attr("title", tooltip);
+        popover.html(heroPointPopoverMarkup(state, max));
         useButton.attr("aria-label", tooltip);
     }
 
@@ -196,6 +219,12 @@ function attachHeroPointsListeners(sheet, root) {
             speaker,
             content: `<p><strong>${escapeHtml(actor.name)}</strong> uses a ${pointType} hero point!</p>`
         });
+    });
+
+    useButton.on("keydown", (event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        event.currentTarget.click();
     });
 }
 

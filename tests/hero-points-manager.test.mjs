@@ -12,7 +12,7 @@ globalThis.game = {
     }
 };
 
-const { heroPointSlotsMarkup, managerMarkup } = await import("../scripts/hero-points.js");
+const { heroPointPopoverMarkup, heroPointSlotsMarkup, managerMarkup } = await import("../scripts/hero-points.js");
 
 function mockActor({ id, name, hasPlayerOwner, inUse, persistent = 0, ephemeral = 0 }) {
     return {
@@ -76,4 +76,16 @@ test("character-sheet slots show session, persistent, and empty capacity", () =>
 
     const maximumMarkup = heroPointSlotsMarkup({ ephemeral: 0, persistent: 0 }, 10);
     assert.equal((maximumMarkup.match(/hero-points-slot-empty/g) || []).length, 10);
+});
+
+test("character-sheet hover card labels each point pool beneath its capacity bars", () => {
+    const markup = heroPointPopoverMarkup({ ephemeral: 2, persistent: 1 }, 5);
+
+    assert.match(markup, /hero-points-popover-bars/);
+    assert.equal((markup.match(/hero-points-slot-session/g) || []).length, 2);
+    assert.equal((markup.match(/hero-points-slot-persistent/g) || []).length, 1);
+    assert.equal((markup.match(/hero-points-slot-empty/g) || []).length, 2);
+    assert.match(markup, /<strong>2<\/strong><span>Session<\/span>/);
+    assert.match(markup, /<strong>1<\/strong><span>Persistent<\/span>/);
+    assert.match(markup, /<strong>2<\/strong><span>Empty<\/span>/);
 });
