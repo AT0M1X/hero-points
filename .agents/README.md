@@ -5,8 +5,10 @@ Hero Points is a small Foundry Virtual Tabletop module for the DnD5e system. It 
 ## Project layout
 
 - `module.json` is the Foundry package manifest and the source of truth for the released version.
-- `scripts/hero-points.js` contains settings registration, sheet injection, point spending, chat output, and the GM mass-award dialog.
+- `scripts/hero-points.js` contains Foundry integration, legacy migration, sheet injection, roster management, chat output, and GM controls.
+- `scripts/hero-points-state.js` contains pure rules for normalizing, awarding, setting, resetting, and spending hero points.
 - `styles/hero-points.css` styles the injected counter and GM dialog and hides the original inspiration control.
+- `tests/hero-points-state.test.mjs` verifies point-pool priority and capacity behavior with Node's built-in test runner.
 - `tools/validate-package.mjs` validates the manifest, release URLs, referenced assets, and optional release tag.
 - `tools/prepare-release.mjs` updates the manifest version and version-specific download URL.
 - `.github/workflows/release.yml` packages and publishes GitHub releases when a `v*` tag is pushed.
@@ -15,9 +17,13 @@ Hero Points is a small Foundry Virtual Tabletop module for the DnD5e system. It 
 
 - The module id and installed folder name must remain `hero-points`.
 - The code runs inside Foundry and intentionally uses Foundry globals such as `Hooks`, `game`, `ui`, `ChatMessage`, `Dialog`, and `Actor`, plus the jQuery global `$`.
-- Hero-point values are stored on actors in the `hero-points.points` flag. The maximum is a world-scoped setting named `hero-points.maxPoints`.
+- Hero-point values are stored on actors in the `hero-points.state` flag as `{ persistent, ephemeral }`. Older `hero-points.points` totals migrate to persistent points.
+- Character roster status is stored in `hero-points.inUse`; an unset value means the character is in use.
+- The maximum is a world-scoped setting named `hero-points.maxPoints` and applies to the combined point pools.
+- Ephemeral points are always spent first. Positive persistent awards may replace ephemeral points at the maximum, but ephemeral awards never replace persistent points.
 - Preserve the DnD5e-only guard and character-only guard when changing sheet injection behavior.
 - Do not claim compatibility with a Foundry or DnD5e version until it has been exercised in that version.
+- Run `node --test tests/hero-points-state.test.mjs` after changing point-state rules.
 - Run `node tools/validate-package.mjs` before committing manifest or release changes.
 
 ## Release process

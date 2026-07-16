@@ -70,7 +70,8 @@
 }
 
 /* Directory button styling */
-.hero-points-give-all {
+.hero-points-give-all,
+.hero-points-session-start {
     margin-left: 4px;
 }
 
@@ -100,12 +101,38 @@
 .hero-points-dialog .hero-points-actor-list th,
 .hero-points-dialog .hero-points-actor-list td {
     padding: 2px 4px;
+    vertical-align: middle;
+}
+
+.hero-points-dialog .hero-points-mode,
+.hero-points-dialog .hero-points-kind {
+    justify-content: flex-start;
+    gap: 16px;
+}
+
+.hero-points-dialog .hero-points-selection-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 4px;
+}
+
+.hero-points-dialog .hero-points-selection-actions span {
+    align-self: center;
+    margin-right: 4px;
+    font-weight: bold;
+}
+
+.hero-points-dialog .hero-points-selection-actions button {
+    flex: 0 0 auto;
+    width: auto;
+    padding: 2px 8px;
 }
 
 /* Column 1: checkbox */
 .hero-points-dialog .hero-points-actor-list th:nth-child(1),
 .hero-points-dialog .hero-points-actor-list td:nth-child(1) {
-    width: 28px;
+    width: 34px;
     text-align: center;
 }
 
@@ -116,9 +143,16 @@
     text-align: left;
 }
 
-/* Column 3: current value */
+/* Column 3: roster status */
 .hero-points-dialog .hero-points-actor-list th:nth-child(3),
 .hero-points-dialog .hero-points-actor-list td:nth-child(3) {
-    width: 60px;
+    width: 52px;
+    text-align: center;
+}
+
+/* Columns 4-6: point balances */
+.hero-points-dialog .hero-points-actor-list th:nth-child(n+4),
+.hero-points-dialog .hero-points-actor-list td:nth-child(n+4) {
+    width: 66px;
     text-align: right;
 }

@@ -5,10 +5,23 @@ Hero Points is a small [Foundry Virtual Tabletop](https://foundryvtt.com/) modul
 ## Features
 
 - Configurable maximum hero points per character.
-- Click the character-sheet counter to spend a point.
+- Separate session (ephemeral) and persistent hero-point pools under one shared maximum.
+- Click the character-sheet counter to spend session points before persistent points.
 - Chat messages respect the current roll mode.
-- GM tool for adding or setting points on selected player characters.
+- Persistent awards replace session points when necessary instead of being lost at the maximum.
+- Persistent per-character In use status with selection shortcuts for in-use, inactive, or all characters.
+- Start Session action that resets in-use characters to one session point when capacity permits.
+- GM tool for adding or setting either point type on selected player characters.
 - Hero points persist as actor flags.
+
+## Using the GM controls
+
+The Actor directory footer has two Hero Points controls:
+
+- **Start Session** resets every in-use player character's session points to 1. Persistent points remain unchanged. A character whose persistent points already equal the maximum receives no session point.
+- **Hero Points** opens the management dialog. Roster status changes save immediately, and the selection shortcuts target in-use characters, inactive characters, everyone, or no one.
+
+When spending a point from a character sheet, session points are always consumed before persistent points. Existing point totals from module versions before 0.2.0 are migrated to persistent points.
 
 ## Compatibility
 
@@ -40,6 +53,7 @@ Restart Foundry after changing `module.json`. JavaScript and CSS changes general
 Run the package checks locally with Node.js:
 
 ```powershell
+node --test tests/hero-points-state.test.mjs
 node tools/validate-package.mjs
 ```
 

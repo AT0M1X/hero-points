@@ -1,4 +1,15 @@
+import {
+    addHeroPoints,
+    getHeroPointTotal,
+    normalizeHeroPointState,
+    resetEphemeralHeroPoint,
+    setHeroPoints,
+    spendHeroPoint
+} from "./hero-points-state.js";
+
 const MODULE_ID = "hero-points";
+const STATE_FLAG = "state";
+const IN_USE_FLAG = "inUse";
 
 /* ----------------- HELPERS ----------------- */
 
@@ -6,23 +17,65 @@ function log(...args) {
     console.log(`${MODULE_ID} |`, ...args);
 }
 
-function clamp(value, min, max) {
-    value = Number(value) || 0;
-    return Math.min(max, Math.max(min, value));
-}
-
-function getHeroPoints(actor) {
-    return Number(actor.getFlag(MODULE_ID, "points")) || 0;
-}
-
-async function setHeroPoints(actor, value, max) {
-    const clamped = clamp(value, 0, max);
-    await actor.setFlag(MODULE_ID, "points", clamped);
-    return clamped;
-}
-
 function getMaxHeroPoints() {
     return game.settings.get(MODULE_ID, "maxPoints");
+}
+
+function getHeroPointState(actor) {
+    const max = getMaxHeroPoints();
+    const storedState = actor.getFlag(MODULE_ID, STATE_FLAG);
+
+    if (storedState !== undefined) {
+        return normalizeHeroPointState(storedState, max);
+    }
+
+    // Versions before 0.2.0 stored a single total. Preserve it as persistent.
+    const legacyPoints = Number(actor.getFlag(MODULE_ID, "points")) || 0;
+    return normalizeHeroPointState({ persistent: legacyPoints, ephemeral: 0 }, max);
+}
+
+async function setHeroPointState(actor, state) {
+    const normalized = normalizeHeroPointState(state, getMaxHeroPoints());
+    await actor.setFlag(MODULE_ID, STATE_FLAG, normalized);
+    return normalized;
+}
+
+function isActorInUse(actor) {
+    return actor.getFlag(MODULE_ID, IN_USE_FLAG) !== false;
+}
+
+function getPlayerCharacters() {
+    return game.actors
+        .filter((actor) => actor.type === "character" && actor.hasPlayerOwner)
+        .sort((left, right) => left.name.localeCompare(right.name));
+}
+
+function heroPointTooltip(state) {
+    return `Click to spend a hero point. Session: ${state.ephemeral}; persistent: ${state.persistent}.`;
+}
+
+function statesMatch(left, right) {
+    return left.persistent === right.persistent && left.ephemeral === right.ephemeral;
+}
+
+function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, (character) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+    })[character]);
+}
+
+async function migrateLegacyHeroPoints() {
+    if (!game.user.isGM) return;
+
+    const actors = game.actors.filter((actor) => actor.type === "character");
+    for (const actor of actors) {
+        if (actor.getFlag(MODULE_ID, STATE_FLAG) !== undefined) continue;
+        await setHeroPointState(actor, getHeroPointState(actor));
+    }
 }
 
 /**
@@ -57,9 +110,9 @@ function sendChatWithRollMode({ content, speaker }) {
 
 function createHeroPointsElement(actor) {
     const max = getMaxHeroPoints();
-    const current = getHeroPoints(actor);
-
-    const tooltip = "Click to spend a hero point";
+    const state = getHeroPointState(actor);
+    const current = getHeroPointTotal(state, max);
+    const tooltip = heroPointTooltip(state);
 
     const html = `
     <div class="hero-points-counter" data-actor-id="${actor.id}" title="${tooltip}">
@@ -86,28 +139,29 @@ function attachHeroPointsListeners(sheet, root) {
     const useButton = counter.find(".hero-points-use");
     const max = getMaxHeroPoints();
 
-    function syncDisplay(value) {
-        const clamped = clamp(value, 0, max);
-        valueSpan.text(clamped);
+    function syncDisplay(state) {
+        valueSpan.text(getHeroPointTotal(state, max));
+        counter.attr("title", heroPointTooltip(state));
     }
 
     // Spend hero point (any owner can do this)
     useButton.on("click", async (event) => {
         event.preventDefault();
 
-        let current = getHeroPoints(actor);
-        if (current <= 0) {
+        const result = spendHeroPoint(getHeroPointState(actor), max);
+        if (!result.spent) {
             ui.notifications?.warn("No hero points left.");
             return;
         }
 
-        current = await setHeroPoints(actor, current - 1, max);
-        syncDisplay(current);
+        const state = await setHeroPointState(actor, result.state);
+        syncDisplay(state);
 
         const speaker = ChatMessage.getSpeaker({ actor });
-        sendChatWithRollMode({
+        const pointType = result.spent === "ephemeral" ? "session" : "persistent";
+        await sendChatWithRollMode({
             speaker,
-            content: `<p><strong>${actor.name}</strong> uses a hero point!</p>`
+            content: `<p><strong>${escapeHtml(actor.name)}</strong> uses a ${pointType} hero point!</p>`
         });
     });
 }
@@ -117,9 +171,8 @@ function attachHeroPointsListeners(sheet, root) {
 
 function openHeroPointsDialog() {
     const max = getMaxHeroPoints();
-    const actors = game.actors.filter(
-        (a) => a.type === "character" && a.hasPlayerOwner
-    );
+    const actors = getPlayerCharacters();
+    const allActorsInUse = actors.every(isActorInUse);
 
     if (!actors.length) {
         ui.notifications?.warn("No player-owned characters found.");
@@ -127,11 +180,16 @@ function openHeroPointsDialog() {
     }
 
     let content = `<form class="hero-points-dialog">
-    <p>Select which characters to modify and whether to add or set hero points.</p>
+    <p>Select characters, choose which point pool to modify, and add or set its value.</p>
 
     <div class="form-group hero-points-mode">
       <label><input type="radio" name="mode" value="add" checked> Add</label>
       <label><input type="radio" name="mode" value="set"> Set</label>
+    </div>
+
+    <div class="form-group hero-points-kind">
+      <label><input type="radio" name="kind" value="persistent" checked> Persistent</label>
+      <label><input type="radio" name="kind" value="ephemeral"> Session (ephemeral)</label>
     </div>
 
     <div class="form-group">
@@ -139,24 +197,42 @@ function openHeroPointsDialog() {
       <input type="number" name="amount" value="1" min="-${max}" max="${max}">
     </div>
 
+    <div class="form-group hero-points-selection-actions">
+      <span>Select:</span>
+      <button type="button" data-select-group="in-use">In use</button>
+      <button type="button" data-select-group="inactive">Not in use</button>
+      <button type="button" data-select-group="all">All</button>
+      <button type="button" data-select-group="none">None</button>
+    </div>
+
+    <p class="notes">Changing an In use checkbox saves immediately. Session start only affects in-use characters.</p>
+
     <table class="hero-points-actor-list">
       <thead>
         <tr>
-          <th><input type="checkbox" class="hero-points-select-all" checked></th>
+          <th><input type="checkbox" class="hero-points-select-all" ${allActorsInUse ? "checked" : ""}></th>
           <th>Character</th>
-          <th>Current</th>
+          <th>In use</th>
+          <th>Session</th>
+          <th>Persistent</th>
+          <th>Total</th>
         </tr>
       </thead>
       <tbody>
   `;
 
     for (const actor of actors) {
-        const current = getHeroPoints(actor);
+        const state = getHeroPointState(actor);
+        const total = getHeroPointTotal(state, max);
+        const inUse = isActorInUse(actor);
         content += `
-      <tr>
-        <td><input type="checkbox" name="actor" value="${actor.id}" checked></td>
-        <td>${actor.name}</td>
-        <td>${current}</td>
+      <tr data-actor-id="${actor.id}" data-in-use="${inUse}">
+        <td><input type="checkbox" name="actor" value="${actor.id}" ${inUse ? "checked" : ""}></td>
+        <td>${escapeHtml(actor.name)}</td>
+        <td><input type="checkbox" class="hero-points-in-use" data-actor-id="${actor.id}" ${inUse ? "checked" : ""}></td>
+        <td>${state.ephemeral}</td>
+        <td>${state.persistent}</td>
+        <td>${total}/${max}</td>
       </tr>
     `;
     }
@@ -179,12 +255,16 @@ function openHeroPointsDialog() {
 
                     const formData = new FormData(form);
                     const mode = formData.get("mode") || "add";
+                    const kind = formData.get("kind") || "persistent";
                     const amount = Number(formData.get("amount") || 0);
 
                     const checkboxes = form.querySelectorAll("input[name='actor']:checked");
                     const actorIds = Array.from(checkboxes).map((i) => i.value);
 
-                    if (!actorIds.length) return;
+                    if (!actorIds.length) {
+                        ui.notifications?.warn("Select at least one character.");
+                        return;
+                    }
 
                     const maxPoints = getMaxHeroPoints();
                     const affectedNames = [];
@@ -193,19 +273,27 @@ function openHeroPointsDialog() {
                         const actor = game.actors.get(id);
                         if (!actor) continue;
 
-                        const current = getHeroPoints(actor);
-                        const newValue = mode === "set" ? amount : current + amount;
+                        const current = getHeroPointState(actor);
+                        const next = mode === "set"
+                            ? setHeroPoints(current, kind, amount, maxPoints)
+                            : addHeroPoints(current, kind, amount, maxPoints);
 
-                        await setHeroPoints(actor, newValue, maxPoints);
+                        if (statesMatch(current, next)) continue;
+                        await setHeroPointState(actor, next);
                         affectedNames.push(actor.name);
                     }
 
-                    // Chat summary respecting roll mode
-                    const verb = mode === "set" ? "set to" : "modified by";
-                    const list = affectedNames.join(", ");
-                    const msgContent = `<p>Hero points for <strong>${list}</strong> ${verb} <strong>${amount}</strong>.</p>`;
+                    if (!affectedNames.length) {
+                        ui.notifications?.warn("The selected hero-point values were already at their limits.");
+                        return;
+                    }
 
-                    sendChatWithRollMode({
+                    const verb = mode === "set" ? "set to" : "modified by";
+                    const list = affectedNames.map(escapeHtml).join(", ");
+                    const pool = kind === "ephemeral" ? "Session hero points" : "Persistent hero points";
+                    const msgContent = `<p>${pool} for <strong>${list}</strong> ${verb} <strong>${amount}</strong>.</p>`;
+
+                    await sendChatWithRollMode({
                         content: msgContent,
                         speaker: ChatMessage.getSpeaker({ user: game.user })
                     });
@@ -218,11 +306,114 @@ function openHeroPointsDialog() {
         default: "apply",
         render: (html) => {
             const selectAll = html.find(".hero-points-select-all");
+
+            function setActorSelections(predicate) {
+                const rows = html.find(".hero-points-actor-list tbody tr");
+                rows.each((_index, rowElement) => {
+                    const row = $(rowElement);
+                    const selected = predicate(row);
+                    row.find("input[name='actor']").prop("checked", selected);
+                });
+                selectAll.prop("checked", rows.length > 0 && rows.find("input[name='actor']:not(:checked)").length === 0);
+            }
+
             selectAll.on("change", (event) => {
                 const checked = event.currentTarget.checked;
                 html.find("input[name='actor']").prop("checked", checked);
             });
+
+            html.find("input[name='actor']").on("change", () => {
+                const actorCheckboxes = html.find("input[name='actor']");
+                selectAll.prop("checked", actorCheckboxes.length > 0 && actorCheckboxes.filter(":not(:checked)").length === 0);
+            });
+
+            html.find("[data-select-group]").on("click", (event) => {
+                event.preventDefault();
+                const group = event.currentTarget.dataset.selectGroup;
+
+                if (group === "all") setActorSelections(() => true);
+                else if (group === "none") setActorSelections(() => false);
+                else if (group === "in-use") setActorSelections((row) => row.attr("data-in-use") === "true");
+                else if (group === "inactive") setActorSelections((row) => row.attr("data-in-use") === "false");
+            });
+
+            html.find(".hero-points-in-use").on("change", async (event) => {
+                const checkbox = $(event.currentTarget);
+                const actor = game.actors.get(event.currentTarget.dataset.actorId);
+                if (!actor) return;
+
+                const inUse = event.currentTarget.checked;
+                checkbox.prop("disabled", true);
+
+                try {
+                    await actor.setFlag(MODULE_ID, IN_USE_FLAG, inUse);
+                    checkbox.closest("tr").attr("data-in-use", String(inUse));
+                } catch (error) {
+                    event.currentTarget.checked = !inUse;
+                    ui.notifications?.error(`Could not update ${actor.name}'s roster status.`);
+                    console.error(`${MODULE_ID} | Could not update roster status:`, error);
+                } finally {
+                    checkbox.prop("disabled", false);
+                }
+            });
         }
+    }).render(true);
+}
+
+function openSessionStartDialog() {
+    const actors = getPlayerCharacters().filter(isActorInUse);
+
+    if (!actors.length) {
+        ui.notifications?.warn("No in-use player characters found.");
+        return;
+    }
+
+    new Dialog({
+        title: "Start Hero Point Session",
+        content: `<p>Reset session hero points to <strong>1</strong> for ${actors.length} in-use character${actors.length === 1 ? "" : "s"}? Persistent points will not change, and characters already at the maximum with persistent points will not receive a session point.</p>`,
+        buttons: {
+            start: {
+                label: "Start Session",
+                icon: '<i class="fas fa-play"></i>',
+                callback: async () => {
+                    const max = getMaxHeroPoints();
+                    const resetNames = [];
+                    const atMaximumNames = [];
+
+                    for (const actor of actors) {
+                        const current = getHeroPointState(actor);
+                        const next = resetEphemeralHeroPoint(current, max);
+
+                        if (next.ephemeral === 0 && next.persistent >= max) {
+                            atMaximumNames.push(actor.name);
+                        } else {
+                            resetNames.push(actor.name);
+                        }
+
+                        if (!statesMatch(current, next)) {
+                            await setHeroPointState(actor, next);
+                        }
+                    }
+
+                    const paragraphs = [];
+                    if (resetNames.length) {
+                        paragraphs.push(`<p>Session hero points reset to <strong>1</strong> for <strong>${resetNames.map(escapeHtml).join(", ")}</strong>.</p>`);
+                    }
+                    if (atMaximumNames.length) {
+                        paragraphs.push(`<p>No session point was added for <strong>${atMaximumNames.map(escapeHtml).join(", ")}</strong> because their persistent points are at the maximum.</p>`);
+                    }
+
+                    await sendChatWithRollMode({
+                        content: paragraphs.join(""),
+                        speaker: ChatMessage.getSpeaker({ user: game.user })
+                    });
+                }
+            },
+            cancel: {
+                label: "Cancel"
+            }
+        },
+        default: "start"
     }).render(true);
 }
 
@@ -348,8 +539,15 @@ Hooks.once("init", () => {
     });
 });
 
-Hooks.once("ready", () => {
+Hooks.once("ready", async () => {
     log("Ready. System:", game.system.id, "version:", game.system.version);
+
+    try {
+        await migrateLegacyHeroPoints();
+    } catch (error) {
+        console.error(`${MODULE_ID} | Could not migrate legacy hero points:`, error);
+        ui.notifications?.error("Hero Points could not migrate existing point totals. See the console for details.");
+    }
 });
 
 /**
@@ -368,19 +566,35 @@ Hooks.on("renderActorDirectory", (app, html, data) => {
     const footer = html.find(".directory-footer");
     if (!footer.length) return;
 
-    if (footer.find(".hero-points-give-all").length) return;
+    if (!footer.find(".hero-points-session-start").length) {
+        const sessionButton = $(`
+      <button type="button" class="hero-points-session-start">
+        <i class="fas fa-play"></i> Start Session
+      </button>
+    `);
 
-    const button = $(`
-    <button type="button" class="hero-points-give-all">
-      <i class="fas fa-star"></i> Hero Points
-    </button>
-  `);
+        sessionButton.on("click", (event) => {
+            event.preventDefault();
+            openSessionStartDialog();
+        });
 
-    button.on("click", (event) => {
-        event.preventDefault();
-        openHeroPointsDialog();
-    });
+        footer.append(sessionButton);
+    }
 
-    footer.append(button);
-    log("Added GM Hero Points button to Actor directory.");
+    if (!footer.find(".hero-points-give-all").length) {
+        const manageButton = $(`
+      <button type="button" class="hero-points-give-all">
+        <i class="fas fa-star"></i> Hero Points
+      </button>
+    `);
+
+        manageButton.on("click", (event) => {
+            event.preventDefault();
+            openHeroPointsDialog();
+        });
+
+        footer.append(manageButton);
+    }
+
+    log("Added GM Hero Points controls to Actor directory.");
 });
