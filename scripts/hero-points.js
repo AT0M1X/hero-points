@@ -179,21 +179,23 @@ function awardRowMarkup(actor, max) {
     const total = getHeroPointTotal(state, max);
 
     return `
-    <label class="hero-points-award-row" data-actor-id="${actor.id}" data-sort-name="${escapeHtml(actor.name.toLocaleLowerCase())}">
-      <input type="checkbox" name="actor" value="${actor.id}" checked>
-      <span class="hero-points-character-name">${escapeHtml(actor.name)}</span>
+    <div class="hero-points-award-row" data-actor-id="${actor.id}" data-sort-name="${escapeHtml(actor.name.toLocaleLowerCase())}">
+      <label class="hero-points-award-selection">
+        <input type="checkbox" name="actor" value="${actor.id}" checked>
+        <span class="hero-points-character-name">${escapeHtml(actor.name)}</span>
+      </label>
       <span class="hero-points-point-summary" aria-label="Session ${state.ephemeral}, persistent ${state.persistent}, total ${total} of ${max}">
-        <span class="hero-points-summary-line hero-points-summary-session" title="Session hero points">
-          <span>S:</span><strong data-point-value="ephemeral">${state.ephemeral}</strong>
+        <span class="hero-points-summary-pill hero-points-summary-session" title="Session: ${state.ephemeral}">
+          <strong>S:</strong><span data-point-value="ephemeral">${state.ephemeral}</span>
         </span>
-        <span class="hero-points-summary-line hero-points-summary-persistent" title="Persistent hero points">
-          <span>P:</span><strong data-point-value="persistent">${state.persistent}</strong>
+        <span class="hero-points-summary-pill hero-points-summary-persistent" title="Persistent: ${state.persistent}">
+          <strong>P:</strong><span data-point-value="persistent">${state.persistent}</span>
         </span>
-        <span class="hero-points-summary-line hero-points-summary-total" title="Combined hero points">
-          <span>T:</span><strong><span data-point-value="total">${total}</span>/${max}</strong>
+        <span class="hero-points-summary-pill hero-points-summary-total" title="Total: ${total}/${max}">
+          <strong>T:</strong><span><span data-point-value="total">${total}</span>/${max}</span>
         </span>
       </span>
-    </label>`;
+    </div>`;
 }
 
 function rosterRowMarkup(actor, inUse) {
@@ -360,6 +362,9 @@ function openHeroPointsDialog() {
                 row.find('[data-point-value="total"]').text(total);
                 row.find(".hero-points-point-summary")
                     .attr("aria-label", `Session ${state.ephemeral}, persistent ${state.persistent}, total ${total} of ${max}`);
+                row.find(".hero-points-summary-session").attr("title", `Session: ${state.ephemeral}`);
+                row.find(".hero-points-summary-persistent").attr("title", `Persistent: ${state.persistent}`);
+                row.find(".hero-points-summary-total").attr("title", `Total: ${total}/${max}`);
             }
 
             function refreshAwardRows() {

@@ -306,22 +306,33 @@
 }
 
 .hero-points-award-row {
-    display: grid;
-    grid-template-columns: 22px minmax(120px, 1fr) 64px;
+    display: flex !important;
     align-items: center;
     gap: 7px;
+    width: 100%;
+    box-sizing: border-box;
     padding: 7px 8px;
     border: 1px solid transparent;
     border-radius: 7px;
     background: rgba(0, 0, 0, 0.045);
-    cursor: pointer;
 }
 
 .hero-points-award-row:hover {
     border-color: var(--color-border-light-2, rgba(0, 0, 0, 0.25));
 }
 
-.hero-points-award-row input {
+.hero-points-award-selection {
+    display: flex !important;
+    flex: 1 1 auto;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+    margin: 0;
+    cursor: pointer;
+}
+
+.hero-points-award-selection input {
+    flex: 0 0 auto;
     margin: 0;
 }
 
@@ -336,31 +347,43 @@
 
 .hero-points-point-summary {
     display: grid;
+    grid-template-columns: repeat(3, minmax(42px, max-content));
+    gap: 5px;
+    flex: 0 0 auto;
     justify-self: end;
-    width: 58px;
+    justify-content: end;
+    margin-left: auto;
     font-size: 11px;
     font-variant-numeric: tabular-nums;
-    line-height: 1.25;
+    line-height: 1;
 }
 
-.hero-points-summary-line {
-    display: grid;
-    grid-template-columns: 18px 1fr;
+.hero-points-summary-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     gap: 3px;
-    text-align: right;
+    min-height: 22px;
+    padding: 3px 6px;
+    border: 1px solid currentColor;
+    border-radius: 999px;
+    text-align: center;
     white-space: nowrap;
 }
 
 .hero-points-summary-session {
     color: #4b91cf;
+    background: rgba(75, 145, 207, 0.13);
 }
 
 .hero-points-summary-persistent {
     color: #c18a32;
+    background: rgba(193, 138, 50, 0.14);
 }
 
 .hero-points-summary-total {
     color: #62a66f;
+    background: rgba(98, 166, 111, 0.14);
 }
 
 .hero-points-award-footer {
@@ -460,6 +483,15 @@
     }
 
     .hero-points-award-row {
-        grid-template-columns: 22px minmax(100px, 1fr) 64px;
+        gap: 5px;
+    }
+
+    .hero-points-point-summary {
+        gap: 3px;
+    }
+
+    .hero-points-summary-pill {
+        min-width: 38px;
+        padding-inline: 4px;
     }
 }
