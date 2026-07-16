@@ -107,13 +107,11 @@
 }
 
 .hero-points-popover {
-    display: flex;
+    display: grid;
     position: absolute;
     z-index: 100;
     top: calc(100% + 7px);
     right: 0;
-    flex-direction: column;
-    gap: 8px;
     width: max-content;
     min-width: 210px;
     padding: 10px 12px;
@@ -146,8 +144,13 @@
 
 .hero-points-popover-details {
     display: flex;
+    grid-area: 1 / 1;
     flex-direction: column;
     gap: 8px;
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+    transition: opacity 180ms ease, transform 180ms ease, visibility 0s linear;
 }
 
 .hero-points-popover-heading {
@@ -214,13 +217,18 @@
 }
 
 .hero-points-popover-feedback {
-    display: none;
+    display: flex;
+    grid-area: 1 / 1;
     flex-direction: column;
     align-items: center;
     gap: 4px;
     min-height: 62px;
     justify-content: center;
     text-align: center;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(3px);
+    transition: opacity 180ms ease, transform 180ms ease, visibility 0s linear 180ms;
 }
 
 .hero-points-popover-feedback i {
@@ -237,12 +245,17 @@
 }
 
 .hero-points-feedback-active .hero-points-popover-details {
-    display: none;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-3px);
+    transition: opacity 180ms ease, transform 180ms ease, visibility 0s linear 180ms;
 }
 
 .hero-points-feedback-active .hero-points-popover-feedback {
-    display: flex;
-    animation: hero-points-feedback-in 180ms ease-out both;
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+    transition: opacity 180ms ease, transform 180ms ease, visibility 0s linear;
 }
 
 .hero-points-feedback-active .hero-points-icon {
@@ -264,20 +277,8 @@
     color: #aaa;
 }
 
-.hero-points-feedback-restored .hero-points-popover-feedback,
 .hero-points-feedback-restored .hero-points-icon {
     animation: none;
-}
-
-@keyframes hero-points-feedback-in {
-    from {
-        opacity: 0;
-        transform: translateY(3px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
 }
 
 @keyframes hero-points-star-spend {
@@ -292,9 +293,16 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .hero-points-feedback-active .hero-points-icon,
-    .hero-points-feedback-active .hero-points-popover-feedback {
+    .hero-points-feedback-active .hero-points-icon {
         animation: none;
+    }
+
+    .hero-points-popover,
+    .hero-points-popover-details,
+    .hero-points-popover-feedback,
+    .hero-points-feedback-active .hero-points-popover-details,
+    .hero-points-feedback-active .hero-points-popover-feedback {
+        transition: none;
     }
 }
 
