@@ -54,6 +54,9 @@ test("manager separates award and roster concerns", () => {
     assert.match(markup, /Start Session/);
     assert.match(awardPanel, /Active Hero/);
     assert.doesNotMatch(awardPanel, /Retired Hero/);
+    assert.match(awardPanel, /S:<\/span><strong data-point-value="ephemeral">1/);
+    assert.match(awardPanel, /P:<\/span><strong data-point-value="persistent">1/);
+    assert.match(awardPanel, /T:<\/span><strong><span data-point-value="total">2<\/span>\/3/);
     assert.match(markup, /Retired Hero/);
     assert.match(markup, /<details class="hero-points-roster-section hero-points-inactive-section"/);
     assert.doesNotMatch(markup, /hero-points-inactive-section"[^>]* open/);

@@ -307,7 +307,7 @@
 
 .hero-points-award-row {
     display: grid;
-    grid-template-columns: 22px minmax(120px, 1fr) auto auto 50px;
+    grid-template-columns: 22px minmax(120px, 1fr) 64px;
     align-items: center;
     gap: 7px;
     padding: 7px 8px;
@@ -334,32 +334,33 @@
     white-space: nowrap;
 }
 
-.hero-points-badge,
-.hero-points-total {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 3px 7px;
-    border-radius: 999px;
+.hero-points-point-summary {
+    display: grid;
+    justify-self: end;
+    width: 58px;
     font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.25;
+}
+
+.hero-points-summary-line {
+    display: grid;
+    grid-template-columns: 18px 1fr;
+    gap: 3px;
+    text-align: right;
     white-space: nowrap;
 }
 
-.hero-points-badge-session {
-    background: rgba(65, 125, 180, 0.16);
+.hero-points-summary-session {
+    color: #4b91cf;
 }
 
-.hero-points-badge-persistent {
-    background: rgba(180, 125, 40, 0.18);
+.hero-points-summary-persistent {
+    color: #c18a32;
 }
 
-.hero-points-total {
-    justify-content: center;
-    background: rgba(0, 0, 0, 0.1);
-}
-
-.hero-points-total span {
-    display: none;
+.hero-points-summary-total {
+    color: #62a66f;
 }
 
 .hero-points-award-footer {
@@ -459,10 +460,6 @@
     }
 
     .hero-points-award-row {
-        grid-template-columns: 22px minmax(100px, 1fr) auto auto;
-    }
-
-    .hero-points-total {
-        display: none;
+        grid-template-columns: 22px minmax(100px, 1fr) 64px;
     }
 }
