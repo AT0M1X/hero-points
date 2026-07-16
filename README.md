@@ -9,17 +9,20 @@ Hero Points is a small [Foundry Virtual Tabletop](https://foundryvtt.com/) modul
 - Click the character-sheet counter to spend session points before persistent points.
 - Chat messages respect the current roll mode.
 - Persistent awards replace session points when necessary instead of being lost at the maximum.
-- Persistent per-character In use status with selection shortcuts for in-use, inactive, or all characters.
+- Persistent per-character roster status with drag-and-drop organization.
 - Start Session action that resets in-use characters to one session point when capacity permits.
-- GM tool for adding or setting either point type on selected player characters.
+- GM tool for adding or setting either point type on selected in-use characters.
 - Hero points persist as actor flags.
 
 ## Using the GM controls
 
-The Actor directory footer has two Hero Points controls:
+The Actor directory footer has one **Hero Points** button, which opens the manager:
 
-- **Start Session** resets every in-use player character's session points to 1. Persistent points remain unchanged. A character whose persistent points already equal the maximum receives no session point.
-- **Hero Points** opens the management dialog. Roster status changes save immediately, and the selection shortcuts target in-use characters, inactive characters, everyone, or no one.
+- **Award Points** shows only in-use characters. All are selected by default, and Add is the primary action. Exact-value corrections remain available under **Advanced adjustments**.
+- **Manage Roster** separates in-use and inactive characters. Drag characters between the sections or use the move buttons; changes save immediately. The inactive section is collapsed by default.
+- **Start Session** is available from the manager header. It resets every in-use character's session points to 1. Persistent points remain unchanged, and a character whose persistent points already equal the maximum receives no session point.
+
+All DnD5e character-type actors appear in Manage Roster. When first classified, player-owned characters default to in use and unowned characters default to inactive. Explicit roster choices are preserved afterward.
 
 When spending a point from a character sheet, session points are always consumed before persistent points. Existing point totals from module versions before 0.2.0 are migrated to persistent points.
 
@@ -53,7 +56,7 @@ Restart Foundry after changing `module.json`. JavaScript and CSS changes general
 Run the package checks locally with Node.js:
 
 ```powershell
-node --test tests/hero-points-state.test.mjs
+node --test
 node tools/validate-package.mjs
 ```
 

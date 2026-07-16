@@ -3,6 +3,7 @@ import {
     getHeroPointTotal,
     normalizeHeroPointState,
     resetEphemeralHeroPoint,
+    resolveRosterStatus,
     setHeroPoints,
     spendHeroPoint
 } from "./hero-points-state.js";
@@ -41,12 +42,12 @@ async function setHeroPointState(actor, state) {
 }
 
 function isActorInUse(actor) {
-    return actor.getFlag(MODULE_ID, IN_USE_FLAG) !== false;
+    return resolveRosterStatus(actor.getFlag(MODULE_ID, IN_USE_FLAG), actor.hasPlayerOwner);
 }
 
-function getPlayerCharacters() {
+function getCharacterRoster() {
     return game.actors
-        .filter((actor) => actor.type === "character" && actor.hasPlayerOwner)
+        .filter((actor) => actor.type === "character")
         .sort((left, right) => left.name.localeCompare(right.name));
 }
 
@@ -73,8 +74,12 @@ async function migrateLegacyHeroPoints() {
 
     const actors = game.actors.filter((actor) => actor.type === "character");
     for (const actor of actors) {
-        if (actor.getFlag(MODULE_ID, STATE_FLAG) !== undefined) continue;
-        await setHeroPointState(actor, getHeroPointState(actor));
+        if (actor.getFlag(MODULE_ID, STATE_FLAG) === undefined) {
+            await setHeroPointState(actor, getHeroPointState(actor));
+        }
+        if (actor.getFlag(MODULE_ID, IN_USE_FLAG) === undefined) {
+            await actor.setFlag(MODULE_ID, IN_USE_FLAG, actor.hasPlayerOwner);
+        }
     }
 }
 
@@ -169,118 +174,307 @@ function attachHeroPointsListeners(sheet, root) {
 
 /* ----------------- MASS AWARD DIALOG ----------------- */
 
+function awardRowMarkup(actor, max) {
+    const state = getHeroPointState(actor);
+    const total = getHeroPointTotal(state, max);
+
+    return `
+    <label class="hero-points-award-row" data-actor-id="${actor.id}" data-sort-name="${escapeHtml(actor.name.toLocaleLowerCase())}">
+      <input type="checkbox" name="actor" value="${actor.id}" checked>
+      <span class="hero-points-character-name">${escapeHtml(actor.name)}</span>
+      <span class="hero-points-badge hero-points-badge-session" title="Session hero points">
+        <span>Session</span><strong data-point-value="ephemeral">${state.ephemeral}</strong>
+      </span>
+      <span class="hero-points-badge hero-points-badge-persistent" title="Persistent hero points">
+        <span>Persistent</span><strong data-point-value="persistent">${state.persistent}</strong>
+      </span>
+      <span class="hero-points-total" title="Combined hero points">
+        <span>Total</span><strong data-point-value="total">${total}</strong>
+      </span>
+    </label>`;
+}
+
+function rosterRowMarkup(actor, inUse) {
+    const targetInUse = !inUse;
+    const actionLabel = inUse ? "Move out" : "Move in";
+    const actionIcon = inUse ? "fa-arrow-down" : "fa-arrow-up";
+
+    return `
+    <div class="hero-points-roster-row" draggable="true" data-actor-id="${actor.id}" data-sort-name="${escapeHtml(actor.name.toLocaleLowerCase())}">
+      <span class="hero-points-drag-handle" title="Drag between roster sections"><i class="fas fa-grip-vertical"></i></span>
+      <span class="hero-points-roster-name">${escapeHtml(actor.name)}</span>
+      <button type="button" class="hero-points-roster-move" data-target-in-use="${targetInUse}">
+        <i class="fas ${actionIcon}"></i> ${actionLabel}
+      </button>
+    </div>`;
+}
+
+export function managerMarkup(actors, max) {
+    const inUseActors = actors.filter(isActorInUse);
+    const inactiveActors = actors.filter((actor) => !isActorInUse(actor));
+    const awardRows = inUseActors.map((actor) => awardRowMarkup(actor, max)).join("");
+    const inUseRows = inUseActors.map((actor) => rosterRowMarkup(actor, true)).join("");
+    const inactiveRows = inactiveActors.map((actor) => rosterRowMarkup(actor, false)).join("");
+
+    return `<form class="hero-points-manager">
+    <div class="hero-points-manager-summary">
+      <div class="hero-points-maximum">
+        <span>Maximum per character</span>
+        <strong>${max}</strong>
+      </div>
+      <button type="button" class="hero-points-session-start">
+        <i class="fas fa-play"></i> Start Session
+      </button>
+    </div>
+
+    <nav class="hero-points-tabs" role="tablist" aria-label="Hero Points manager sections">
+      <button type="button" class="active" role="tab" aria-selected="true" data-tab="award">
+        <i class="fas fa-star"></i> Award Points
+      </button>
+      <button type="button" role="tab" aria-selected="false" data-tab="roster">
+        <i class="fas fa-users"></i> Manage Roster
+      </button>
+    </nav>
+
+    <section class="hero-points-tab-panel" role="tabpanel" data-panel="award">
+      <div class="hero-points-award-controls">
+        <fieldset>
+          <legend>Point type</legend>
+          <div class="hero-points-segmented-control">
+            <label><input type="radio" name="kind" value="persistent" checked><span>Persistent</span></label>
+            <label><input type="radio" name="kind" value="ephemeral"><span>Session</span></label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Amount</legend>
+          <div class="hero-points-stepper">
+            <button type="button" data-amount-step="-1" aria-label="Decrease amount"><i class="fas fa-minus"></i></button>
+            <input type="number" name="amount" value="1" min="-${max}" max="${max}" aria-label="Point amount">
+            <button type="button" data-amount-step="1" aria-label="Increase amount"><i class="fas fa-plus"></i></button>
+          </div>
+        </fieldset>
+      </div>
+
+      <details class="hero-points-advanced">
+        <summary>Advanced adjustments</summary>
+        <div class="hero-points-mode-options">
+          <label><input type="radio" name="mode" value="add" checked> Add the amount</label>
+          <label><input type="radio" name="mode" value="set"> Set the selected pool to the amount</label>
+        </div>
+      </details>
+
+      <div class="hero-points-list-heading">
+        <div>
+          <h3>In-use characters</h3>
+          <p><span data-award-count>${inUseActors.length}</span> available</p>
+        </div>
+        <div class="hero-points-list-actions">
+          <button type="button" data-select-awards="all">Select all</button>
+          <button type="button" data-select-awards="none">Clear</button>
+        </div>
+      </div>
+
+      <div class="hero-points-award-list">
+        ${awardRows}
+        <p class="hero-points-empty ${inUseActors.length ? "" : "visible"}" data-empty-awards>No characters are currently in use.</p>
+      </div>
+
+      <div class="hero-points-award-footer">
+        <span><strong data-selected-count>${inUseActors.length}</strong> selected</span>
+        <button type="button" class="hero-points-apply-award" ${inUseActors.length ? "" : "disabled"}>
+          <i class="fas fa-star"></i> Award Points
+        </button>
+      </div>
+    </section>
+
+    <section class="hero-points-tab-panel" role="tabpanel" data-panel="roster" hidden>
+      <p class="hero-points-roster-help">Drag characters between sections or use the move buttons. Changes save immediately.</p>
+
+      <section class="hero-points-roster-section" data-in-use="true">
+        <header>
+          <h3>In use</h3>
+          <span class="hero-points-count" data-roster-count="true">${inUseActors.length}</span>
+        </header>
+        <div class="hero-points-roster-list" data-roster-list="true">
+          ${inUseRows}
+          <p class="hero-points-empty ${inUseActors.length ? "" : "visible"}" data-empty-roster="true">Drop characters here to add them to the active roster.</p>
+        </div>
+      </section>
+
+      <details class="hero-points-roster-section hero-points-inactive-section" data-in-use="false">
+        <summary>
+          <span>Not in use</span>
+          <span class="hero-points-count" data-roster-count="false">${inactiveActors.length}</span>
+          <span class="hero-points-drop-hint">Drop here</span>
+        </summary>
+        <div class="hero-points-roster-list" data-roster-list="false">
+          ${inactiveRows}
+          <p class="hero-points-empty ${inactiveActors.length ? "" : "visible"}" data-empty-roster="false">No inactive characters.</p>
+        </div>
+      </details>
+    </section>
+  </form>`;
+}
+
 function openHeroPointsDialog() {
     const max = getMaxHeroPoints();
-    const actors = getPlayerCharacters();
-    const allActorsInUse = actors.every(isActorInUse);
+    const actors = getCharacterRoster();
 
     if (!actors.length) {
-        ui.notifications?.warn("No player-owned characters found.");
+        ui.notifications?.warn("No character actors found.");
         return;
     }
 
-    let content = `<form class="hero-points-dialog">
-    <p>Select characters, choose which point pool to modify, and add or set its value.</p>
-
-    <div class="form-group hero-points-mode">
-      <label><input type="radio" name="mode" value="add" checked> Add</label>
-      <label><input type="radio" name="mode" value="set"> Set</label>
-    </div>
-
-    <div class="form-group hero-points-kind">
-      <label><input type="radio" name="kind" value="persistent" checked> Persistent</label>
-      <label><input type="radio" name="kind" value="ephemeral"> Session (ephemeral)</label>
-    </div>
-
-    <div class="form-group">
-      <label>Amount</label>
-      <input type="number" name="amount" value="1" min="-${max}" max="${max}">
-    </div>
-
-    <div class="form-group hero-points-selection-actions">
-      <span>Select:</span>
-      <button type="button" data-select-group="in-use">In use</button>
-      <button type="button" data-select-group="inactive">Not in use</button>
-      <button type="button" data-select-group="all">All</button>
-      <button type="button" data-select-group="none">None</button>
-    </div>
-
-    <p class="notes">Changing an In use checkbox saves immediately. Session start only affects in-use characters.</p>
-
-    <table class="hero-points-actor-list">
-      <thead>
-        <tr>
-          <th><input type="checkbox" class="hero-points-select-all" ${allActorsInUse ? "checked" : ""}></th>
-          <th>Character</th>
-          <th>In use</th>
-          <th>Session</th>
-          <th>Persistent</th>
-          <th>Total</th>
-        </tr>
-      </thead>
-      <tbody>
-  `;
-
-    for (const actor of actors) {
-        const state = getHeroPointState(actor);
-        const total = getHeroPointTotal(state, max);
-        const inUse = isActorInUse(actor);
-        content += `
-      <tr data-actor-id="${actor.id}" data-in-use="${inUse}">
-        <td><input type="checkbox" name="actor" value="${actor.id}" ${inUse ? "checked" : ""}></td>
-        <td>${escapeHtml(actor.name)}</td>
-        <td><input type="checkbox" class="hero-points-in-use" data-actor-id="${actor.id}" ${inUse ? "checked" : ""}></td>
-        <td>${state.ephemeral}</td>
-        <td>${state.persistent}</td>
-        <td>${total}/${max}</td>
-      </tr>
-    `;
-    }
-
-    content += `
-      </tbody>
-    </table>
-  </form>`;
-
     new Dialog({
-        title: "Adjust Hero Points",
-        content,
+        title: "Hero Points",
+        content: managerMarkup(actors, max),
         buttons: {
-            apply: {
-                label: "Apply",
-                icon: '<i class="fas fa-check"></i>',
-                callback: async (html) => {
-                    const form = html[0].querySelector("form.hero-points-dialog");
-                    if (!form) return;
+            close: {
+                label: "Close"
+            }
+        },
+        render: (html) => {
+            const awardList = html.find(".hero-points-award-list");
 
-                    const formData = new FormData(form);
-                    const mode = formData.get("mode") || "add";
-                    const kind = formData.get("kind") || "persistent";
-                    const amount = Number(formData.get("amount") || 0);
+            function sortRows(container, selector) {
+                const rows = container.children(selector).get();
+                rows.sort((left, right) => String(left.dataset.sortName).localeCompare(String(right.dataset.sortName)));
+                container.prepend(rows);
+            }
 
-                    const checkboxes = form.querySelectorAll("input[name='actor']:checked");
-                    const actorIds = Array.from(checkboxes).map((i) => i.value);
+            function updateAwardSelection() {
+                const selected = awardList.find("input[name='actor']:checked").length;
+                html.find("[data-selected-count]").text(selected);
+                html.find(".hero-points-apply-award").prop("disabled", selected === 0);
+            }
 
-                    if (!actorIds.length) {
-                        ui.notifications?.warn("Select at least one character.");
-                        return;
+            function updateAwardRow(actor) {
+                const state = getHeroPointState(actor);
+                const row = awardList.find(`.hero-points-award-row[data-actor-id="${actor.id}"]`);
+                row.find('[data-point-value="ephemeral"]').text(state.ephemeral);
+                row.find('[data-point-value="persistent"]').text(state.persistent);
+                row.find('[data-point-value="total"]').text(getHeroPointTotal(state, max));
+            }
+
+            function refreshAwardRows() {
+                for (const actor of getCharacterRoster().filter(isActorInUse)) {
+                    updateAwardRow(actor);
+                }
+            }
+
+            function updateRosterCounts() {
+                for (const inUse of [true, false]) {
+                    const list = html.find(`[data-roster-list="${inUse}"]`);
+                    const count = list.find(".hero-points-roster-row").length;
+                    html.find(`[data-roster-count="${inUse}"]`).text(count);
+                    html.find(`[data-empty-roster="${inUse}"]`).toggleClass("visible", count === 0);
+                }
+
+                const awardCount = awardList.find(".hero-points-award-row").length;
+                html.find("[data-award-count]").text(awardCount);
+                html.find("[data-empty-awards]").toggleClass("visible", awardCount === 0);
+                updateAwardSelection();
+            }
+
+            async function moveRosterActor(actorId, targetInUse) {
+                const actor = game.actors.get(actorId);
+                if (!actor || isActorInUse(actor) === targetInUse) return;
+
+                const rosterRow = html.find(`.hero-points-roster-row[data-actor-id="${actorId}"]`);
+                rosterRow.addClass("saving");
+
+                try {
+                    await actor.setFlag(MODULE_ID, IN_USE_FLAG, targetInUse);
+
+                    const targetList = html.find(`[data-roster-list="${targetInUse}"]`);
+                    const moveButton = rosterRow.find(".hero-points-roster-move");
+                    moveButton.attr("data-target-in-use", String(!targetInUse));
+                    moveButton.html(targetInUse
+                        ? '<i class="fas fa-arrow-down"></i> Move out'
+                        : '<i class="fas fa-arrow-up"></i> Move in');
+                    targetList.prepend(rosterRow.detach());
+                    sortRows(targetList, ".hero-points-roster-row");
+
+                    const existingAwardRow = awardList.find(`.hero-points-award-row[data-actor-id="${actorId}"]`);
+                    if (targetInUse && !existingAwardRow.length) {
+                        awardList.prepend($(awardRowMarkup(actor, max)));
+                        sortRows(awardList, ".hero-points-award-row");
+                    } else if (!targetInUse) {
+                        existingAwardRow.remove();
                     }
 
-                    const maxPoints = getMaxHeroPoints();
-                    const affectedNames = [];
+                    updateRosterCounts();
+                } catch (error) {
+                    ui.notifications?.error(`Could not update ${actor.name}'s roster status.`);
+                    console.error(`${MODULE_ID} | Could not update roster status:`, error);
+                } finally {
+                    rosterRow.removeClass("saving");
+                }
+            }
 
+            html.find("[data-tab]").on("click", (event) => {
+                const tab = event.currentTarget.dataset.tab;
+                html.find("[data-tab]").removeClass("active").attr("aria-selected", "false");
+                $(event.currentTarget).addClass("active").attr("aria-selected", "true");
+                html.find("[data-panel]").prop("hidden", true);
+                html.find(`[data-panel="${tab}"]`).prop("hidden", false);
+            });
+
+            html.find("[data-select-awards]").on("click", (event) => {
+                const checked = event.currentTarget.dataset.selectAwards === "all";
+                awardList.find("input[name='actor']").prop("checked", checked);
+                updateAwardSelection();
+            });
+
+            html.on("change", ".hero-points-award-row input[name='actor']", updateAwardSelection);
+
+            html.find("[data-amount-step]").on("click", (event) => {
+                const input = html.find('input[name="amount"]');
+                const current = Number(input.val()) || 0;
+                const step = Number(event.currentTarget.dataset.amountStep) || 0;
+                input.val(Math.min(max, Math.max(-max, current + step)));
+            });
+
+            html.find('input[name="mode"]').on("change", (event) => {
+                const label = event.currentTarget.value === "set" ? "Apply Adjustment" : "Award Points";
+                html.find(".hero-points-apply-award").html(`<i class="fas fa-star"></i> ${label}`);
+            });
+
+            html.find(".hero-points-apply-award").on("click", async () => {
+                const form = html[0].querySelector("form.hero-points-manager");
+                if (!form) return;
+
+                const formData = new FormData(form);
+                const mode = formData.get("mode") || "add";
+                const kind = formData.get("kind") || "persistent";
+                const amount = Number(formData.get("amount") || 0);
+                const actorIds = Array.from(form.querySelectorAll(".hero-points-award-row input[name='actor']:checked"))
+                    .map((input) => input.value);
+
+                if (!actorIds.length) {
+                    ui.notifications?.warn("Select at least one character.");
+                    return;
+                }
+
+                const affectedNames = [];
+                const applyButton = html.find(".hero-points-apply-award");
+                applyButton.prop("disabled", true);
+
+                try {
                     for (const id of actorIds) {
                         const actor = game.actors.get(id);
-                        if (!actor) continue;
+                        if (!actor || !isActorInUse(actor)) continue;
 
                         const current = getHeroPointState(actor);
                         const next = mode === "set"
-                            ? setHeroPoints(current, kind, amount, maxPoints)
-                            : addHeroPoints(current, kind, amount, maxPoints);
+                            ? setHeroPoints(current, kind, amount, max)
+                            : addHeroPoints(current, kind, amount, max);
 
                         if (statesMatch(current, next)) continue;
                         await setHeroPointState(actor, next);
                         affectedNames.push(actor.name);
+                        updateAwardRow(actor);
                     }
 
                     if (!affectedNames.length) {
@@ -291,77 +485,61 @@ function openHeroPointsDialog() {
                     const verb = mode === "set" ? "set to" : "modified by";
                     const list = affectedNames.map(escapeHtml).join(", ");
                     const pool = kind === "ephemeral" ? "Session hero points" : "Persistent hero points";
-                    const msgContent = `<p>${pool} for <strong>${list}</strong> ${verb} <strong>${amount}</strong>.</p>`;
-
                     await sendChatWithRollMode({
-                        content: msgContent,
+                        content: `<p>${pool} for <strong>${list}</strong> ${verb} <strong>${amount}</strong>.</p>`,
                         speaker: ChatMessage.getSpeaker({ user: game.user })
                     });
-                }
-            },
-            cancel: {
-                label: "Cancel"
-            }
-        },
-        default: "apply",
-        render: (html) => {
-            const selectAll = html.find(".hero-points-select-all");
-
-            function setActorSelections(predicate) {
-                const rows = html.find(".hero-points-actor-list tbody tr");
-                rows.each((_index, rowElement) => {
-                    const row = $(rowElement);
-                    const selected = predicate(row);
-                    row.find("input[name='actor']").prop("checked", selected);
-                });
-                selectAll.prop("checked", rows.length > 0 && rows.find("input[name='actor']:not(:checked)").length === 0);
-            }
-
-            selectAll.on("change", (event) => {
-                const checked = event.currentTarget.checked;
-                html.find("input[name='actor']").prop("checked", checked);
-            });
-
-            html.find("input[name='actor']").on("change", () => {
-                const actorCheckboxes = html.find("input[name='actor']");
-                selectAll.prop("checked", actorCheckboxes.length > 0 && actorCheckboxes.filter(":not(:checked)").length === 0);
-            });
-
-            html.find("[data-select-group]").on("click", (event) => {
-                event.preventDefault();
-                const group = event.currentTarget.dataset.selectGroup;
-
-                if (group === "all") setActorSelections(() => true);
-                else if (group === "none") setActorSelections(() => false);
-                else if (group === "in-use") setActorSelections((row) => row.attr("data-in-use") === "true");
-                else if (group === "inactive") setActorSelections((row) => row.attr("data-in-use") === "false");
-            });
-
-            html.find(".hero-points-in-use").on("change", async (event) => {
-                const checkbox = $(event.currentTarget);
-                const actor = game.actors.get(event.currentTarget.dataset.actorId);
-                if (!actor) return;
-
-                const inUse = event.currentTarget.checked;
-                checkbox.prop("disabled", true);
-
-                try {
-                    await actor.setFlag(MODULE_ID, IN_USE_FLAG, inUse);
-                    checkbox.closest("tr").attr("data-in-use", String(inUse));
-                } catch (error) {
-                    event.currentTarget.checked = !inUse;
-                    ui.notifications?.error(`Could not update ${actor.name}'s roster status.`);
-                    console.error(`${MODULE_ID} | Could not update roster status:`, error);
                 } finally {
-                    checkbox.prop("disabled", false);
+                    updateAwardSelection();
                 }
             });
+
+            html.find(".hero-points-session-start").on("click", () => {
+                openSessionStartDialog(refreshAwardRows);
+            });
+
+            html.on("click", ".hero-points-roster-move", (event) => {
+                const row = $(event.currentTarget).closest(".hero-points-roster-row");
+                moveRosterActor(row.attr("data-actor-id"), event.currentTarget.dataset.targetInUse === "true");
+            });
+
+            html.on("dragstart", ".hero-points-roster-row", (event) => {
+                const dragEvent = event.originalEvent;
+                dragEvent.dataTransfer.setData("text/plain", event.currentTarget.dataset.actorId);
+                dragEvent.dataTransfer.effectAllowed = "move";
+                $(event.currentTarget).addClass("dragging");
+            });
+
+            html.on("dragend", ".hero-points-roster-row", (event) => {
+                $(event.currentTarget).removeClass("dragging");
+                html.find(".hero-points-roster-section").removeClass("drag-over");
+            });
+
+            html.on("dragover", ".hero-points-roster-section", (event) => {
+                event.preventDefault();
+                event.originalEvent.dataTransfer.dropEffect = "move";
+                html.find(".hero-points-roster-section").removeClass("drag-over");
+                $(event.currentTarget).addClass("drag-over");
+            });
+
+            html.on("drop", ".hero-points-roster-section", (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                const section = $(event.currentTarget);
+                const actorId = event.originalEvent.dataTransfer.getData("text/plain");
+                html.find(".hero-points-roster-section").removeClass("drag-over");
+                moveRosterActor(actorId, section.attr("data-in-use") === "true");
+            });
+
+            updateAwardSelection();
         }
+    }, {
+        width: 640
     }).render(true);
 }
 
-function openSessionStartDialog() {
-    const actors = getPlayerCharacters().filter(isActorInUse);
+function openSessionStartDialog(onComplete) {
+    const actors = getCharacterRoster().filter(isActorInUse);
 
     if (!actors.length) {
         ui.notifications?.warn("No in-use player characters found.");
@@ -407,6 +585,8 @@ function openSessionStartDialog() {
                         content: paragraphs.join(""),
                         speaker: ChatMessage.getSpeaker({ user: game.user })
                     });
+
+                    await onComplete?.();
                 }
             },
             cancel: {
@@ -566,24 +746,9 @@ Hooks.on("renderActorDirectory", (app, html, data) => {
     const footer = html.find(".directory-footer");
     if (!footer.length) return;
 
-    if (!footer.find(".hero-points-session-start").length) {
-        const sessionButton = $(`
-      <button type="button" class="hero-points-session-start">
-        <i class="fas fa-play"></i> Start Session
-      </button>
-    `);
-
-        sessionButton.on("click", (event) => {
-            event.preventDefault();
-            openSessionStartDialog();
-        });
-
-        footer.append(sessionButton);
-    }
-
-    if (!footer.find(".hero-points-give-all").length) {
+    if (!footer.find(".hero-points-manager-open").length) {
         const manageButton = $(`
-      <button type="button" class="hero-points-give-all">
+      <button type="button" class="hero-points-manager-open">
         <i class="fas fa-star"></i> Hero Points
       </button>
     `);
@@ -596,5 +761,5 @@ Hooks.on("renderActorDirectory", (app, html, data) => {
         footer.append(manageButton);
     }
 
-    log("Added GM Hero Points controls to Actor directory.");
+    log("Added GM Hero Points manager button to Actor directory.");
 });

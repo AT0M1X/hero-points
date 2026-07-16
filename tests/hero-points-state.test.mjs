@@ -6,9 +6,17 @@ import {
     getHeroPointTotal,
     normalizeHeroPointState,
     resetEphemeralHeroPoint,
+    resolveRosterStatus,
     setHeroPoints,
     spendHeroPoint
 } from "../scripts/hero-points-state.js";
+
+test("roster status preserves explicit choices and otherwise follows player ownership", () => {
+    assert.equal(resolveRosterStatus(true, false), true);
+    assert.equal(resolveRosterStatus(false, true), false);
+    assert.equal(resolveRosterStatus(undefined, true), true);
+    assert.equal(resolveRosterStatus(undefined, false), false);
+});
 
 test("normalization preserves persistent points before ephemeral points", () => {
     assert.deepEqual(

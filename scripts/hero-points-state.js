@@ -6,6 +6,10 @@ function toMaximum(value) {
     return Math.max(0, Math.trunc(Number(value) || 0));
 }
 
+export function resolveRosterStatus(storedValue, hasPlayerOwner) {
+    return typeof storedValue === "boolean" ? storedValue : Boolean(hasPlayerOwner);
+}
+
 /**
  * Normalize a hero-point state while preserving persistent points first.
  */
