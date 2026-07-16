@@ -108,3 +108,14 @@ test("character-sheet hover card renders session and persistent spend confirmati
     assert.match(sessionMarkup, /Session point · 2\/3 remaining/);
     assert.match(persistentMarkup, /Persistent point · 1\/3 remaining/);
 });
+
+test("character-sheet hover card renders an inline empty-pool confirmation", () => {
+    const markup = heroPointPopoverMarkup(
+        { ephemeral: 0, persistent: 0 },
+        3,
+        { type: "empty" }
+    );
+
+    assert.match(markup, /<strong>No points available<\/strong>/);
+    assert.doesNotMatch(markup, /Hero Point used!/);
+});

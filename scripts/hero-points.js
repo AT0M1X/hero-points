@@ -11,8 +11,8 @@ import {
 const MODULE_ID = "hero-points";
 const STATE_FLAG = "state";
 const IN_USE_FLAG = "inUse";
-const SPENT_FEEDBACK_DURATION = 1600;
-const spentFeedbackByActor = new Map();
+const HERO_POINT_FEEDBACK_DURATION = 1600;
+const heroPointFeedbackByActor = new Map();
 
 /* ----------------- HELPERS ----------------- */
 
@@ -86,6 +86,16 @@ export function heroPointPopoverMarkup(state, maximum, feedback = null) {
     const empty = Math.max(0, max - total);
     const instruction = total > 0 ? "Click to spend a hero point" : "No hero points available";
     const feedbackLabel = feedback?.type === "ephemeral" ? "Session point" : "Persistent point";
+    const feedbackMarkup = feedback?.type === "empty"
+        ? `
+        <i class="fas fa-star" aria-hidden="true"></i>
+        <strong>No points available</strong>`
+        : feedback
+            ? `
+        <i class="fas fa-star" aria-hidden="true"></i>
+        <strong>Hero Point used!</strong>
+        <span>${feedbackLabel} · ${total}/${max} remaining</span>`
+            : "";
 
     return `
       <span class="hero-points-popover-details">
@@ -109,35 +119,39 @@ export function heroPointPopoverMarkup(state, maximum, feedback = null) {
         </span>
       </span>
       <span class="hero-points-popover-feedback">
-        <i class="fas fa-star" aria-hidden="true"></i>
-        <strong>Hero Point used!</strong>
-        <span>${feedback ? `${feedbackLabel} · ${total}/${max} remaining` : ""}</span>
+        ${feedbackMarkup}
       </span>
     `;
 }
 
-function getSpentFeedback(actorId) {
-    const feedback = spentFeedbackByActor.get(actorId);
+function getHeroPointFeedback(actorId) {
+    const feedback = heroPointFeedbackByActor.get(actorId);
     if (!feedback) return null;
     if (feedback.expiresAt > Date.now()) return feedback;
 
-    spentFeedbackByActor.delete(actorId);
+    heroPointFeedbackByActor.delete(actorId);
     return null;
 }
 
-function beginSpentFeedback(actorId, type) {
+function beginHeroPointFeedback(actorId, type) {
     const feedback = {
         type,
-        expiresAt: Date.now() + SPENT_FEEDBACK_DURATION
+        expiresAt: Date.now() + HERO_POINT_FEEDBACK_DURATION,
+        animated: false
     };
-    spentFeedbackByActor.set(actorId, feedback);
+    heroPointFeedbackByActor.set(actorId, feedback);
     return feedback;
 }
 
-function spentFeedbackClasses(feedback) {
+function heroPointFeedbackClasses(feedback) {
     if (!feedback) return "";
-    const typeClass = feedback.type === "ephemeral" ? "hero-points-spent-session" : "hero-points-spent-persistent";
-    return ` hero-points-spent ${typeClass}`;
+    const typeClass = feedback.type === "ephemeral"
+        ? "hero-points-feedback-session"
+        : feedback.type === "persistent"
+            ? "hero-points-feedback-persistent"
+            : "hero-points-feedback-empty";
+    const restoredClass = feedback.animated ? " hero-points-feedback-restored" : "";
+    return ` hero-points-feedback-active ${typeClass}${restoredClass}`;
 }
 
 function statesMatch(left, right) {
@@ -203,10 +217,10 @@ function createHeroPointsElement(actor) {
     const state = getHeroPointState(actor);
     const current = getHeroPointTotal(state, max);
     const tooltip = heroPointTooltip(state, max);
-    const feedback = getSpentFeedback(actor.id);
+    const feedback = getHeroPointFeedback(actor.id);
 
     const html = `
-    <div class="hero-points-counter${spentFeedbackClasses(feedback)}" data-actor-id="${actor.id}">
+    <div class="hero-points-counter${heroPointFeedbackClasses(feedback)}" data-actor-id="${actor.id}">
       <a class="hero-points-use" data-action="use-hero-point" role="button" tabindex="0" aria-label="${tooltip}">
         <i class="fas fa-star hero-points-icon"></i>
         <span class="hero-points-number">
@@ -234,30 +248,46 @@ function attachHeroPointsListeners(sheet, root) {
     const max = getMaxHeroPoints();
 
     function applyFeedback(feedback) {
-        counter.removeClass("hero-points-spent hero-points-spent-session hero-points-spent-persistent");
-        if (!feedback) return;
+        const feedbackClasses = [
+            "hero-points-feedback-active",
+            "hero-points-feedback-session",
+            "hero-points-feedback-persistent",
+            "hero-points-feedback-empty",
+            "hero-points-feedback-restored"
+        ];
+        if (!feedback) {
+            counter.removeClass(feedbackClasses.join(" "));
+            return;
+        }
 
-        counter.addClass(spentFeedbackClasses(feedback).trim());
+        const alreadyActive = counter.hasClass("hero-points-feedback-active");
+        counter.removeClass(feedbackClasses.join(" "));
+        counter.addClass(heroPointFeedbackClasses(feedback).trim());
+        if (alreadyActive && !feedback.animated) {
+            counter.removeClass("hero-points-feedback-restored");
+        }
+        feedback.animated = true;
+
         const remainingDuration = Math.max(0, feedback.expiresAt - Date.now());
         setTimeout(() => {
-            const currentFeedback = spentFeedbackByActor.get(actor.id);
-            if (currentFeedback?.expiresAt !== feedback.expiresAt) return;
+            const currentFeedback = heroPointFeedbackByActor.get(actor.id);
+            if (currentFeedback && currentFeedback.expiresAt !== feedback.expiresAt) return;
 
-            spentFeedbackByActor.delete(actor.id);
-            counter.removeClass("hero-points-spent hero-points-spent-session hero-points-spent-persistent");
+            if (currentFeedback) heroPointFeedbackByActor.delete(actor.id);
+            counter.removeClass(feedbackClasses.join(" "));
         }, remainingDuration);
     }
 
     function syncDisplay(state) {
         const tooltip = heroPointTooltip(state, max);
-        const feedback = getSpentFeedback(actor.id);
+        const feedback = getHeroPointFeedback(actor.id);
         valueSpan.text(getHeroPointTotal(state, max));
         popover.html(heroPointPopoverMarkup(state, max, feedback));
         useButton.attr("aria-label", tooltip);
         applyFeedback(feedback);
     }
 
-    applyFeedback(getSpentFeedback(actor.id));
+    applyFeedback(getHeroPointFeedback(actor.id));
 
     // Spend hero point (any owner can do this)
     useButton.on("click", async (event) => {
@@ -265,15 +295,15 @@ function attachHeroPointsListeners(sheet, root) {
 
         const result = spendHeroPoint(getHeroPointState(actor), max);
         if (!result.spent) {
-            ui.notifications?.warn("No hero points left.");
+            beginHeroPointFeedback(actor.id, "empty");
+            syncDisplay(result.state);
             return;
         }
 
-        beginSpentFeedback(actor.id, result.spent);
+        beginHeroPointFeedback(actor.id, result.spent);
         syncDisplay(result.state);
 
-        const state = await setHeroPointState(actor, result.state);
-        syncDisplay(state);
+        await setHeroPointState(actor, result.state);
 
         const speaker = ChatMessage.getSpeaker({ actor });
         const pointType = result.spent === "ephemeral" ? "session" : "persistent";

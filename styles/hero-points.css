@@ -139,7 +139,7 @@
 
 .hero-points-use:hover .hero-points-popover,
 .hero-points-use:focus-visible .hero-points-popover,
-.hero-points-spent .hero-points-popover {
+.hero-points-feedback-active .hero-points-popover {
     opacity: 1;
     transform: translateY(0);
 }
@@ -236,27 +236,37 @@
     font-size: 10px;
 }
 
-.hero-points-spent .hero-points-popover-details {
+.hero-points-feedback-active .hero-points-popover-details {
     display: none;
 }
 
-.hero-points-spent .hero-points-popover-feedback {
+.hero-points-feedback-active .hero-points-popover-feedback {
     display: flex;
     animation: hero-points-feedback-in 180ms ease-out both;
 }
 
-.hero-points-spent .hero-points-icon {
+.hero-points-feedback-active .hero-points-icon {
     animation: hero-points-star-spend 500ms ease-out;
 }
 
-.hero-points-spent-session .hero-points-popover-feedback i,
-.hero-points-spent-session .hero-points-popover-feedback strong {
+.hero-points-feedback-session .hero-points-popover-feedback i,
+.hero-points-feedback-session .hero-points-popover-feedback strong {
     color: #6cb7f6;
 }
 
-.hero-points-spent-persistent .hero-points-popover-feedback i,
-.hero-points-spent-persistent .hero-points-popover-feedback strong {
+.hero-points-feedback-persistent .hero-points-popover-feedback i,
+.hero-points-feedback-persistent .hero-points-popover-feedback strong {
     color: #e0ad4d;
+}
+
+.hero-points-feedback-empty .hero-points-popover-feedback i,
+.hero-points-feedback-empty .hero-points-popover-feedback strong {
+    color: #aaa;
+}
+
+.hero-points-feedback-restored .hero-points-popover-feedback,
+.hero-points-feedback-restored .hero-points-icon {
+    animation: none;
 }
 
 @keyframes hero-points-feedback-in {
@@ -282,8 +292,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .hero-points-spent .hero-points-icon,
-    .hero-points-spent .hero-points-popover-feedback {
+    .hero-points-feedback-active .hero-points-icon,
+    .hero-points-feedback-active .hero-points-popover-feedback {
         animation: none;
     }
 }
