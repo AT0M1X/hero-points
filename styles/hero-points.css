@@ -138,9 +138,36 @@
 }
 
 .hero-points-use:hover .hero-points-popover,
-.hero-points-use:focus-visible .hero-points-popover {
+.hero-points-use:focus-visible .hero-points-popover,
+.hero-points-spent .hero-points-popover {
     opacity: 1;
     transform: translateY(0);
+}
+
+.hero-points-popover-details {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.hero-points-popover-heading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    line-height: 1.1;
+}
+
+.hero-points-popover-heading strong {
+    color: #efd28e;
+    font-size: 12px;
+    letter-spacing: 0.055em;
+    text-transform: uppercase;
+}
+
+.hero-points-popover-heading span {
+    color: rgba(238, 238, 238, 0.68);
+    font-size: 10px;
 }
 
 .hero-points-popover-bars {
@@ -184,6 +211,81 @@
 .hero-points-popover-empty strong,
 .hero-points-popover-empty span {
     color: #aaa;
+}
+
+.hero-points-popover-feedback {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    min-height: 62px;
+    justify-content: center;
+    text-align: center;
+}
+
+.hero-points-popover-feedback i {
+    font-size: 19px;
+}
+
+.hero-points-popover-feedback strong {
+    font-size: 14px;
+}
+
+.hero-points-popover-feedback span {
+    color: rgba(238, 238, 238, 0.72);
+    font-size: 10px;
+}
+
+.hero-points-spent .hero-points-popover-details {
+    display: none;
+}
+
+.hero-points-spent .hero-points-popover-feedback {
+    display: flex;
+    animation: hero-points-feedback-in 180ms ease-out both;
+}
+
+.hero-points-spent .hero-points-icon {
+    animation: hero-points-star-spend 500ms ease-out;
+}
+
+.hero-points-spent-session .hero-points-popover-feedback i,
+.hero-points-spent-session .hero-points-popover-feedback strong {
+    color: #6cb7f6;
+}
+
+.hero-points-spent-persistent .hero-points-popover-feedback i,
+.hero-points-spent-persistent .hero-points-popover-feedback strong {
+    color: #e0ad4d;
+}
+
+@keyframes hero-points-feedback-in {
+    from {
+        opacity: 0;
+        transform: translateY(3px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes hero-points-star-spend {
+    0%, 100% {
+        filter: none;
+        transform: scale(1);
+    }
+    40% {
+        filter: drop-shadow(0 0 5px currentColor);
+        transform: scale(1.35) rotate(-8deg);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hero-points-spent .hero-points-icon,
+    .hero-points-spent .hero-points-popover-feedback {
+        animation: none;
+    }
 }
 
 /* Edit controls (only active when sheet is unlocked) */

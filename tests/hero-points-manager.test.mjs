@@ -81,6 +81,8 @@ test("character-sheet slots show session, persistent, and empty capacity", () =>
 test("character-sheet hover card labels each point pool beneath its capacity bars", () => {
     const markup = heroPointPopoverMarkup({ ephemeral: 2, persistent: 1 }, 5);
 
+    assert.match(markup, /<strong>Hero Points<\/strong>/);
+    assert.match(markup, /Click to spend a hero point/);
     assert.match(markup, /hero-points-popover-bars/);
     assert.equal((markup.match(/hero-points-slot-session/g) || []).length, 2);
     assert.equal((markup.match(/hero-points-slot-persistent/g) || []).length, 1);
@@ -88,4 +90,21 @@ test("character-sheet hover card labels each point pool beneath its capacity bar
     assert.match(markup, /<strong>2<\/strong><span>Session<\/span>/);
     assert.match(markup, /<strong>1<\/strong><span>Persistent<\/span>/);
     assert.match(markup, /<strong>2<\/strong><span>Empty<\/span>/);
+});
+
+test("character-sheet hover card renders session and persistent spend confirmations", () => {
+    const sessionMarkup = heroPointPopoverMarkup(
+        { ephemeral: 1, persistent: 1 },
+        3,
+        { type: "ephemeral" }
+    );
+    const persistentMarkup = heroPointPopoverMarkup(
+        { ephemeral: 0, persistent: 1 },
+        3,
+        { type: "persistent" }
+    );
+
+    assert.match(sessionMarkup, /Hero Point used!/);
+    assert.match(sessionMarkup, /Session point · 2\/3 remaining/);
+    assert.match(persistentMarkup, /Persistent point · 1\/3 remaining/);
 });
