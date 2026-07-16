@@ -1,0 +1,41 @@
+{
+    "id": "hero-points",
+    "title": "Hero Points (Inspiration Replacement)",
+    "description": "Replaces the DnD5e inspiration checkbox with a configurable hero point counter, plus GM tools to award hero points.",
+    "version": "0.1.0",
+    "compatibility": {
+        "minimum": "10",
+        "verified": "13"
+    },
+    "authors": [
+        {
+            "name": "Kristian V."
+        }
+    ],
+    "esmodules": [
+        "scripts/hero-points.js"
+    ],
+    "styles": [
+        "styles/hero-points.css"
+    ],
+    "relationships": {
+        "systems": [
+            {
+                "id": "dnd5e",
+                "type": "system",
+                "compatibility": {
+                    "minimum": "2.0.0",
+                    "verified": "5.2.0"
+                }
+            }
+        ]
+    },
+    "flags": {
+        "hero-points": {
+            "safe": true
+        }
+    },
+    "url": "https://github.com/AT0M1X/hero-points",
+    "manifest": "https://github.com/AT0M1X/hero-points/releases/latest/download/module.json",
+    "download": "https://github.com/AT0M1X/hero-points/releases/download/v0.1.0/hero-points.zip"
+}

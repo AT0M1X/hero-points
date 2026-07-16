@@ -1,0 +1,43 @@
+name: Release Foundry module
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Validate manifest and tag
+        run: node tools/validate-package.mjs "${GITHUB_REF_NAME}"
+
+      - name: Build release assets
+        shell: bash
+        run: |
+          mkdir release
+          cp module.json release/module.json
+          zip -r release/hero-points.zip module.json scripts styles README.md
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create "${GITHUB_REF_NAME}"
+          release/module.json
+          release/hero-points.zip
+          --verify-tag
+          --generate-notes
+          --title "${GITHUB_REF_NAME}"
