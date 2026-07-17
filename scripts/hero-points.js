@@ -494,6 +494,7 @@ function openHeroPointsDialog() {
         },
         render: (html) => {
             const awardList = html.find(".hero-points-award-list");
+            let awardFeedbackTimeout;
 
             function resizeManagerDialog() {
                 requestAnimationFrame(() => managerDialog.setPosition({ height: "auto" }));
@@ -511,7 +512,7 @@ function openHeroPointsDialog() {
                 html.find(".hero-points-apply-award").prop("disabled", selected === 0);
             }
 
-            function updateAwardRow(actor) {
+            function updateAwardRow(actor, highlightKind = null) {
                 const state = getHeroPointState(actor);
                 const total = getHeroPointTotal(state, max);
                 const row = awardList.find(`.hero-points-award-row[data-actor-id="${actor.id}"]`);
@@ -523,6 +524,67 @@ function openHeroPointsDialog() {
                 row.find(".hero-points-summary-session").attr("title", `Session: ${state.ephemeral}`);
                 row.find(".hero-points-summary-persistent").attr("title", `Persistent: ${state.persistent}`);
                 row.find(".hero-points-summary-total").attr("title", `Total: ${total}/${max}`);
+
+                if (highlightKind && row.length) {
+                    const typeClass = highlightKind === "ephemeral"
+                        ? "hero-points-award-row-updated-session"
+                        : "hero-points-award-row-updated-persistent";
+                    const poolPill = highlightKind === "ephemeral"
+                        ? row.find(".hero-points-summary-session")
+                        : row.find(".hero-points-summary-persistent");
+                    const highlightedPills = poolPill.add(row.find(".hero-points-summary-total"));
+                    const existingTimeout = row.data("heroPointsUpdateTimeout");
+                    if (existingTimeout) clearTimeout(existingTimeout);
+
+                    row.removeClass(
+                        "hero-points-award-row-updated " +
+                        "hero-points-award-row-updated-session " +
+                        "hero-points-award-row-updated-persistent"
+                    );
+                    highlightedPills.removeClass("hero-points-summary-updated");
+                    if (row[0]) void row[0].offsetWidth;
+                    row.addClass(`hero-points-award-row-updated ${typeClass}`);
+                    highlightedPills.addClass("hero-points-summary-updated");
+
+                    row.data("heroPointsUpdateTimeout", setTimeout(() => {
+                        row.removeClass(
+                            "hero-points-award-row-updated " +
+                            "hero-points-award-row-updated-session " +
+                            "hero-points-award-row-updated-persistent"
+                        );
+                        highlightedPills.removeClass("hero-points-summary-updated");
+                        row.removeData("heroPointsUpdateTimeout");
+                    }, 1000));
+                }
+            }
+
+            function restoreAwardButtonLabel() {
+                const mode = html.find('input[name="mode"]:checked').val() || "add";
+                const label = mode === "set" ? "Apply Adjustment" : "Award Points";
+                html.find(".hero-points-apply-award").html(`<i class="fas fa-star"></i> ${label}`);
+            }
+
+            function clearAwardFeedback() {
+                if (awardFeedbackTimeout) clearTimeout(awardFeedbackTimeout);
+                awardFeedbackTimeout = undefined;
+                html.find(".hero-points-apply-award").removeClass("hero-points-award-success");
+                restoreAwardButtonLabel();
+            }
+
+            function showAwardFeedback() {
+                const applyButton = html.find(".hero-points-apply-award");
+                if (awardFeedbackTimeout) clearTimeout(awardFeedbackTimeout);
+                applyButton.removeClass("hero-points-award-success");
+                if (applyButton[0]) void applyButton[0].offsetWidth;
+                applyButton
+                    .addClass("hero-points-award-success")
+                    .html('<i class="fas fa-check"></i> Points updated!');
+
+                awardFeedbackTimeout = setTimeout(() => {
+                    applyButton.removeClass("hero-points-award-success");
+                    restoreAwardButtonLabel();
+                    awardFeedbackTimeout = undefined;
+                }, 1500);
             }
 
             function refreshAwardRows() {
@@ -608,9 +670,10 @@ function openHeroPointsDialog() {
                 input.val(Math.min(max, Math.max(-max, current + step)));
             });
 
-            html.find('input[name="mode"]').on("change", (event) => {
-                const label = event.currentTarget.value === "set" ? "Apply Adjustment" : "Award Points";
-                html.find(".hero-points-apply-award").html(`<i class="fas fa-star"></i> ${label}`);
+            html.find('input[name="mode"]').on("change", () => {
+                if (!html.find(".hero-points-apply-award").hasClass("hero-points-award-success")) {
+                    restoreAwardButtonLabel();
+                }
             });
 
             html.find(".hero-points-apply-award").on("click", async () => {
@@ -631,6 +694,7 @@ function openHeroPointsDialog() {
 
                 const affectedNames = [];
                 const applyButton = html.find(".hero-points-apply-award");
+                clearAwardFeedback();
                 applyButton.prop("disabled", true);
 
                 try {
@@ -646,7 +710,7 @@ function openHeroPointsDialog() {
                         if (statesMatch(current, next)) continue;
                         await setHeroPointState(actor, next);
                         affectedNames.push(actor.name);
-                        updateAwardRow(actor);
+                        updateAwardRow(actor, kind);
                     }
 
                     if (!affectedNames.length) {
@@ -657,6 +721,7 @@ function openHeroPointsDialog() {
                     const verb = mode === "set" ? "set to" : "modified by";
                     const list = affectedNames.map(escapeHtml).join(", ");
                     const pool = kind === "ephemeral" ? "Session hero points" : "Persistent hero points";
+                    showAwardFeedback();
                     await sendChatWithRollMode({
                         content: `<p>${pool} for <strong>${list}</strong> ${verb} <strong>${amount}</strong>.</p>`,
                         speaker: ChatMessage.getSpeaker({ user: game.user })

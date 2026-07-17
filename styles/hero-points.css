@@ -774,13 +774,13 @@
 
 .hero-points-point-summary {
     display: grid;
-    grid-template-columns: repeat(3, minmax(42px, max-content));
-    gap: 5px;
+    grid-template-columns: repeat(3, minmax(48px, max-content));
+    gap: 6px;
     flex: 0 0 auto;
     justify-self: end;
     justify-content: end;
     margin-left: auto;
-    font-size: 11px;
+    font-size: 12px;
     font-variant-numeric: tabular-nums;
     line-height: 1;
 }
@@ -789,14 +789,18 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 3px;
-    min-height: 22px;
-    padding: 3px 6px;
+    gap: 4px;
+    min-height: 27px;
+    padding: 4px 8px;
     border: 1px solid color-mix(in srgb, currentColor 72%, transparent);
     border-radius: 999px;
     text-align: center;
     white-space: nowrap;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.hero-points-summary-pill strong {
+    font-size: 12px;
 }
 
 .hero-points-summary-session {
@@ -866,6 +870,31 @@
     border-color: #6cb7f6;
     background: linear-gradient(180deg, rgba(108, 183, 246, 0.96), rgba(53, 119, 177, 0.98));
     box-shadow: 0 0 8px rgba(75, 145, 207, 0.34);
+}
+
+.hero-points-manager .hero-points-apply-award.hero-points-award-success,
+.hero-points-manager:has(input[name="kind"][value="ephemeral"]:checked) .hero-points-apply-award.hero-points-award-success {
+    border-color: var(--hero-points-green);
+    background: linear-gradient(180deg, rgba(98, 166, 111, 0.96), rgba(54, 116, 67, 0.98));
+    color: white;
+    box-shadow: 0 0 9px rgba(98, 166, 111, 0.38);
+    animation: hero-points-award-button-success 240ms ease-out;
+}
+
+.hero-points-award-row-updated-session {
+    --hero-points-update-color: rgba(75, 145, 207, 0.85);
+}
+
+.hero-points-award-row-updated-persistent {
+    --hero-points-update-color: rgba(193, 138, 50, 0.85);
+}
+
+.hero-points-award-row-updated {
+    animation: hero-points-award-row-feedback 1000ms ease-out;
+}
+
+.hero-points-summary-updated {
+    animation: hero-points-summary-feedback 1000ms ease-out;
 }
 
 .hero-points-roster-help {
@@ -1013,6 +1042,38 @@
     }
 }
 
+@keyframes hero-points-award-button-success {
+    0% {
+        transform: scale(0.97);
+    }
+    60% {
+        transform: scale(1.025);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+@keyframes hero-points-award-row-feedback {
+    0%, 100% {
+        filter: drop-shadow(0 0 0 transparent);
+    }
+    28% {
+        filter: drop-shadow(0 0 5px var(--hero-points-update-color));
+    }
+}
+
+@keyframes hero-points-summary-feedback {
+    0%, 100% {
+        filter: brightness(1);
+        transform: scale(1);
+    }
+    28% {
+        filter: brightness(1.45) drop-shadow(0 0 4px currentColor);
+        transform: scale(1.12);
+    }
+}
+
 @media (max-width: 600px) {
     .hero-points-award-controls {
         grid-template-columns: 1fr;
@@ -1043,5 +1104,11 @@
     .hero-points-roster-section,
     .hero-points-segmented-control span {
         transition: none;
+    }
+
+    .hero-points-award-success,
+    .hero-points-award-row-updated,
+    .hero-points-summary-updated {
+        animation: none;
     }
 }
