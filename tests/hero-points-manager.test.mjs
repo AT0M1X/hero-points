@@ -144,6 +144,8 @@ test("session start confirmation previews eligible and maximum characters", () =
     const markup = sessionStartMarkup([eligible, blocked], 3);
 
     assert.match(markup, /Ready for a new session\?/);
+    assert.match(markup, /hero-points-session-play-symbol/);
+    assert.doesNotMatch(markup, /hero-points-session-confirmation-icon"><i/);
     assert.match(markup, /<strong>2<\/strong><span>In use<\/span>/);
     assert.match(markup, /<strong>1<\/strong><span>Receive point<\/span>/);
     assert.match(markup, /<strong>1<\/strong><span>At maximum<\/span>/);

@@ -846,7 +846,9 @@ export function sessionStartMarkup(actors, maximum) {
     return `
     <div class="hero-points-session-confirmation">
       <header class="hero-points-session-confirmation-header">
-        <span class="hero-points-session-confirmation-icon"><i class="fas fa-play"></i></span>
+        <span class="hero-points-session-confirmation-icon" aria-hidden="true">
+          <span class="hero-points-session-play-symbol"></span>
+        </span>
         <div>
           <h2>Ready for a new session?</h2>
           <p>Prepare Hero Points for ${actors.length} in-use ${characterLabel}.</p>
