@@ -12,7 +12,13 @@ globalThis.game = {
     }
 };
 
-const { heroPointPopoverMarkup, heroPointSlotsMarkup, managerMarkup, sessionStartMarkup } = await import("../scripts/hero-points.js");
+const {
+    awardNoChangeMessage,
+    heroPointPopoverMarkup,
+    heroPointSlotsMarkup,
+    managerMarkup,
+    sessionStartMarkup
+} = await import("../scripts/hero-points.js");
 
 function mockActor({ id, name, hasPlayerOwner, inUse, persistent = 0, ephemeral = 0 }) {
     return {
@@ -145,4 +151,11 @@ test("session start confirmation previews eligible and maximum characters", () =
     assert.match(markup, /Set to 1/);
     assert.match(markup, /Persistent points/);
     assert.match(markup, /Unchanged/);
+});
+
+test("award no-change feedback describes the attempted operation", () => {
+    assert.equal(awardNoChangeMessage("add", 1), "Already at maximum");
+    assert.equal(awardNoChangeMessage("add", -1), "Already at zero");
+    assert.equal(awardNoChangeMessage("add", 0), "No change requested");
+    assert.equal(awardNoChangeMessage("set", 2), "Already at that value");
 });

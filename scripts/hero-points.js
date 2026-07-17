@@ -79,6 +79,13 @@ export function heroPointSlotsMarkup(state, maximum) {
     return slots.join("");
 }
 
+export function awardNoChangeMessage(mode, amount) {
+    if (mode === "set") return "Already at that value";
+    if (amount > 0) return "Already at maximum";
+    if (amount < 0) return "Already at zero";
+    return "No change requested";
+}
+
 export function heroPointPopoverMarkup(state, maximum, feedback = null) {
     const max = Math.max(0, Math.trunc(Number(maximum) || 0));
     const normalized = normalizeHeroPointState(state, max);
@@ -439,7 +446,7 @@ export function managerMarkup(actors, max) {
 
       <div class="hero-points-award-footer">
         <span><strong data-selected-count>${inUseActors.length}</strong> selected</span>
-        <button type="button" class="hero-points-apply-award" ${inUseActors.length ? "" : "disabled"}>
+        <button type="button" class="hero-points-apply-award" aria-live="polite" ${inUseActors.length ? "" : "disabled"}>
           <i class="fas fa-star"></i> Award Points
         </button>
       </div>
@@ -568,21 +575,38 @@ function openHeroPointsDialog() {
             function clearAwardFeedback() {
                 if (awardFeedbackTimeout) clearTimeout(awardFeedbackTimeout);
                 awardFeedbackTimeout = undefined;
-                html.find(".hero-points-apply-award").removeClass("hero-points-award-success");
+                html.find(".hero-points-apply-award")
+                    .removeClass("hero-points-award-success hero-points-award-limit");
                 restoreAwardButtonLabel();
             }
 
             function showAwardFeedback() {
                 const applyButton = html.find(".hero-points-apply-award");
                 if (awardFeedbackTimeout) clearTimeout(awardFeedbackTimeout);
-                applyButton.removeClass("hero-points-award-success");
+                applyButton.removeClass("hero-points-award-success hero-points-award-limit");
                 if (applyButton[0]) void applyButton[0].offsetWidth;
                 applyButton
                     .addClass("hero-points-award-success")
                     .html('<i class="fas fa-check"></i> Points updated!');
 
                 awardFeedbackTimeout = setTimeout(() => {
-                    applyButton.removeClass("hero-points-award-success");
+                    applyButton.removeClass("hero-points-award-success hero-points-award-limit");
+                    restoreAwardButtonLabel();
+                    awardFeedbackTimeout = undefined;
+                }, 1500);
+            }
+
+            function showAwardLimitFeedback(message) {
+                const applyButton = html.find(".hero-points-apply-award");
+                if (awardFeedbackTimeout) clearTimeout(awardFeedbackTimeout);
+                applyButton.removeClass("hero-points-award-success hero-points-award-limit");
+                if (applyButton[0]) void applyButton[0].offsetWidth;
+                applyButton
+                    .addClass("hero-points-award-limit")
+                    .html(`<i class="fas fa-circle-minus"></i> ${message}`);
+
+                awardFeedbackTimeout = setTimeout(() => {
+                    applyButton.removeClass("hero-points-award-success hero-points-award-limit");
                     restoreAwardButtonLabel();
                     awardFeedbackTimeout = undefined;
                 }, 1500);
@@ -701,7 +725,7 @@ function openHeroPointsDialog() {
             });
 
             html.find('input[name="mode"]').on("change", () => {
-                if (!html.find(".hero-points-apply-award").hasClass("hero-points-award-success")) {
+                if (!html.find(".hero-points-apply-award").is(".hero-points-award-success, .hero-points-award-limit")) {
                     restoreAwardButtonLabel();
                 }
             });
@@ -744,7 +768,7 @@ function openHeroPointsDialog() {
                     }
 
                     if (!affectedNames.length) {
-                        ui.notifications?.warn("The selected hero-point values were already at their limits.");
+                        showAwardLimitFeedback(awardNoChangeMessage(mode, amount));
                         return;
                     }
 
