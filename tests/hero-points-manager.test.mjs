@@ -12,7 +12,7 @@ globalThis.game = {
     }
 };
 
-const { heroPointPopoverMarkup, heroPointSlotsMarkup, managerMarkup } = await import("../scripts/hero-points.js");
+const { heroPointPopoverMarkup, heroPointSlotsMarkup, managerMarkup, sessionStartMarkup } = await import("../scripts/hero-points.js");
 
 function mockActor({ id, name, hasPlayerOwner, inUse, persistent = 0, ephemeral = 0 }) {
     return {
@@ -118,4 +118,31 @@ test("character-sheet hover card renders an inline empty-pool confirmation", () 
 
     assert.match(markup, /<strong>No points available<\/strong>/);
     assert.doesNotMatch(markup, /Hero Point used!/);
+});
+
+test("session start confirmation previews eligible and maximum characters", () => {
+    const eligible = mockActor({
+        id: "eligible-id",
+        name: "Eligible Hero",
+        hasPlayerOwner: true,
+        persistent: 1,
+        ephemeral: 1
+    });
+    const blocked = mockActor({
+        id: "blocked-id",
+        name: "Blocked Hero",
+        hasPlayerOwner: true,
+        persistent: 3
+    });
+
+    const markup = sessionStartMarkup([eligible, blocked], 3);
+
+    assert.match(markup, /Ready for a new session\?/);
+    assert.match(markup, /<strong>2<\/strong><span>In use<\/span>/);
+    assert.match(markup, /<strong>1<\/strong><span>Receive point<\/span>/);
+    assert.match(markup, /<strong>1<\/strong><span>At maximum<\/span>/);
+    assert.match(markup, /Session points/);
+    assert.match(markup, /Set to 1/);
+    assert.match(markup, /Persistent points/);
+    assert.match(markup, /Unchanged/);
 });

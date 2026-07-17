@@ -495,6 +495,7 @@ function openHeroPointsDialog() {
         render: (html) => {
             const awardList = html.find(".hero-points-award-list");
             let awardFeedbackTimeout;
+            let sessionFeedbackTimeout;
 
             function resizeManagerDialog() {
                 requestAnimationFrame(() => managerDialog.setPosition({ height: "auto" }));
@@ -587,10 +588,39 @@ function openHeroPointsDialog() {
                 }, 1500);
             }
 
-            function refreshAwardRows() {
+            function refreshAwardRows(highlightKind = null, highlightedActorIds = []) {
+                const highlightedIds = new Set(highlightedActorIds);
                 for (const actor of getCharacterRoster().filter(isActorInUse)) {
-                    updateAwardRow(actor);
+                    updateAwardRow(actor, highlightedIds.has(actor.id) ? highlightKind : null);
                 }
+            }
+
+            function restoreSessionStartButton() {
+                html.find(".hero-points-session-start")
+                    .removeClass("hero-points-session-success")
+                    .html('<i class="fas fa-play"></i> Start Session');
+            }
+
+            function clearSessionStartFeedback() {
+                if (sessionFeedbackTimeout) clearTimeout(sessionFeedbackTimeout);
+                sessionFeedbackTimeout = undefined;
+                restoreSessionStartButton();
+            }
+
+            function showSessionStartFeedback(changedActorIds) {
+                const startButton = html.find(".hero-points-session-start");
+                if (sessionFeedbackTimeout) clearTimeout(sessionFeedbackTimeout);
+                startButton.removeClass("hero-points-session-success");
+                if (startButton[0]) void startButton[0].offsetWidth;
+                startButton
+                    .addClass("hero-points-session-success")
+                    .html('<i class="fas fa-check"></i> Session started!');
+                refreshAwardRows("ephemeral", changedActorIds);
+
+                sessionFeedbackTimeout = setTimeout(() => {
+                    restoreSessionStartButton();
+                    sessionFeedbackTimeout = undefined;
+                }, 1600);
             }
 
             function updateRosterCounts() {
@@ -732,7 +762,10 @@ function openHeroPointsDialog() {
             });
 
             html.find(".hero-points-session-start").on("click", () => {
-                openSessionStartDialog(refreshAwardRows);
+                clearSessionStartFeedback();
+                openSessionStartDialog(({ changedActorIds }) => {
+                    showSessionStartFeedback(changedActorIds);
+                });
             });
 
             html.on("click", ".hero-points-roster-move", (event) => {
@@ -777,6 +810,54 @@ function openHeroPointsDialog() {
     managerDialog.render(true);
 }
 
+export function sessionStartMarkup(actors, maximum) {
+    const max = Math.max(0, Math.trunc(Number(maximum) || 0));
+    const blockedCount = actors.filter((actor) => getHeroPointState(actor).persistent >= max).length;
+    const eligibleCount = actors.length - blockedCount;
+    const characterLabel = actors.length === 1 ? "character" : "characters";
+    const blockedNote = blockedCount
+        ? `<p class="hero-points-session-limit-note"><i class="fas fa-circle-info"></i> <strong>${blockedCount}</strong> ${blockedCount === 1 ? "character is" : "characters are"} already at the maximum through persistent points and cannot receive a session point.</p>`
+        : "";
+
+    return `
+    <div class="hero-points-session-confirmation">
+      <header class="hero-points-session-confirmation-header">
+        <span class="hero-points-session-confirmation-icon"><i class="fas fa-play"></i></span>
+        <div>
+          <h2>Ready for a new session?</h2>
+          <p>Prepare Hero Points for ${actors.length} in-use ${characterLabel}.</p>
+        </div>
+      </header>
+
+      <div class="hero-points-session-preview" aria-label="Session start preview">
+        <span class="hero-points-session-preview-item">
+          <strong>${actors.length}</strong><span>In use</span>
+        </span>
+        <span class="hero-points-session-preview-item hero-points-session-preview-eligible">
+          <strong>${eligibleCount}</strong><span>Receive point</span>
+        </span>
+        <span class="hero-points-session-preview-item hero-points-session-preview-blocked">
+          <strong>${blockedCount}</strong><span>At maximum</span>
+        </span>
+      </div>
+
+      <div class="hero-points-session-rules">
+        <div class="hero-points-session-rule hero-points-session-rule-session">
+          <i class="fas fa-star"></i>
+          <span><strong>Session points</strong><small>Reset for this session</small></span>
+          <b>Set to 1</b>
+        </div>
+        <div class="hero-points-session-rule hero-points-session-rule-persistent">
+          <i class="fas fa-bookmark"></i>
+          <span><strong>Persistent points</strong><small>Saved between sessions</small></span>
+          <b>Unchanged</b>
+        </div>
+      </div>
+
+      ${blockedNote}
+    </div>`;
+}
+
 function openSessionStartDialog(onComplete) {
     const actors = getCharacterRoster().filter(isActorInUse);
 
@@ -785,17 +866,18 @@ function openSessionStartDialog(onComplete) {
         return;
     }
 
+    const max = getMaxHeroPoints();
     new Dialog({
         title: "Start Hero Point Session",
-        content: `<p>Reset session hero points to <strong>1</strong> for ${actors.length} in-use character${actors.length === 1 ? "" : "s"}? Persistent points will not change, and characters already at the maximum with persistent points will not receive a session point.</p>`,
+        content: sessionStartMarkup(actors, max),
         buttons: {
             start: {
                 label: "Start Session",
                 icon: '<i class="fas fa-play"></i>',
                 callback: async () => {
-                    const max = getMaxHeroPoints();
                     const resetNames = [];
                     const atMaximumNames = [];
+                    const changedActorIds = [];
 
                     for (const actor of actors) {
                         const current = getHeroPointState(actor);
@@ -809,6 +891,7 @@ function openSessionStartDialog(onComplete) {
 
                         if (!statesMatch(current, next)) {
                             await setHeroPointState(actor, next);
+                            changedActorIds.push(actor.id);
                         }
                     }
 
@@ -825,7 +908,7 @@ function openSessionStartDialog(onComplete) {
                         speaker: ChatMessage.getSpeaker({ user: game.user })
                     });
 
-                    await onComplete?.();
+                    await onComplete?.({ changedActorIds, resetNames, atMaximumNames });
                 }
             },
             cancel: {
@@ -833,6 +916,9 @@ function openSessionStartDialog(onComplete) {
             }
         },
         default: "start"
+    }, {
+        width: 480,
+        classes: ["hero-points-session-start-dialog"]
     }).render(true);
 }
 

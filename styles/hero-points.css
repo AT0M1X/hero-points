@@ -460,6 +460,19 @@
     box-shadow: 0 0 7px rgba(193, 138, 50, 0.28);
 }
 
+.hero-points-manager .hero-points-session-start.hero-points-session-success,
+.hero-points-manager .hero-points-session-start.hero-points-session-success:hover {
+    border-color: var(--hero-points-green);
+    background: linear-gradient(180deg, rgba(98, 166, 111, 0.96), rgba(54, 116, 67, 0.98));
+    color: white;
+    box-shadow: 0 0 9px rgba(98, 166, 111, 0.38);
+    animation: hero-points-award-button-success 240ms ease-out;
+}
+
+.hero-points-manager .hero-points-session-start.hero-points-session-success i {
+    color: white;
+}
+
 .hero-points-tabs {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -1074,6 +1087,207 @@
     }
 }
 
+/* Session start confirmation dialog */
+.hero-points-session-confirmation {
+    --hero-points-dialog-gold: var(--color-warm-2, #9b6b1f);
+    --hero-points-dialog-blue: #4b91cf;
+    --hero-points-dialog-border: var(--color-border-light-2, rgba(0, 0, 0, 0.24));
+    display: flex;
+    flex-direction: column;
+    gap: 13px;
+}
+
+.hero-points-session-confirmation-header {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 10px 11px;
+    border: 1px solid rgba(75, 145, 207, 0.34);
+    border-radius: 9px;
+    background: linear-gradient(135deg, rgba(75, 145, 207, 0.13), rgba(155, 107, 31, 0.045));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 1px 3px rgba(0, 0, 0, 0.09);
+}
+
+.hero-points-session-confirmation-icon {
+    display: inline-grid;
+    flex: 0 0 38px;
+    width: 38px;
+    height: 38px;
+    place-items: center;
+    border: 1px solid rgba(108, 183, 246, 0.42);
+    border-radius: 50%;
+    background: linear-gradient(145deg, rgba(75, 145, 207, 0.95), rgba(42, 92, 137, 0.98));
+    color: white;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), 0 2px 6px rgba(20, 55, 85, 0.22);
+}
+
+.hero-points-session-confirmation-header h2,
+.hero-points-session-confirmation-header p {
+    margin: 0;
+}
+
+.hero-points-session-confirmation-header h2 {
+    font-size: 16px;
+    line-height: 1.2;
+}
+
+.hero-points-session-confirmation-header p {
+    margin-top: 3px;
+    font-size: 12px;
+    opacity: 0.7;
+}
+
+.hero-points-session-preview {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 7px;
+}
+
+.hero-points-session-preview-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 8px 6px;
+    border: 1px solid var(--hero-points-dialog-border);
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.045);
+    text-align: center;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+.hero-points-session-preview-item strong {
+    font-size: 18px;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+}
+
+.hero-points-session-preview-item span {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.025em;
+    text-transform: uppercase;
+    opacity: 0.65;
+}
+
+.hero-points-session-preview-eligible {
+    border-color: rgba(75, 145, 207, 0.38);
+    background: rgba(75, 145, 207, 0.1);
+    color: var(--hero-points-dialog-blue);
+}
+
+.hero-points-session-preview-blocked {
+    border-color: rgba(193, 138, 50, 0.34);
+    background: rgba(193, 138, 50, 0.08);
+    color: var(--hero-points-dialog-gold);
+}
+
+.hero-points-session-rules {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.hero-points-session-rule {
+    display: grid;
+    grid-template-columns: 25px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border: 1px solid var(--hero-points-dialog-border);
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.035);
+}
+
+.hero-points-session-rule > i {
+    text-align: center;
+    font-size: 14px;
+}
+
+.hero-points-session-rule > span {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.hero-points-session-rule small {
+    font-size: 10px;
+    opacity: 0.62;
+}
+
+.hero-points-session-rule > b {
+    padding: 4px 7px;
+    border-radius: 999px;
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+.hero-points-session-rule-session > i,
+.hero-points-session-rule-session > b {
+    color: var(--hero-points-dialog-blue);
+}
+
+.hero-points-session-rule-session > b {
+    background: rgba(75, 145, 207, 0.13);
+}
+
+.hero-points-session-rule-persistent > i,
+.hero-points-session-rule-persistent > b {
+    color: var(--hero-points-dialog-gold);
+}
+
+.hero-points-session-rule-persistent > b {
+    background: rgba(193, 138, 50, 0.13);
+}
+
+.hero-points-session-limit-note {
+    margin: 0;
+    padding: 8px 9px;
+    border-left: 3px solid var(--hero-points-dialog-gold);
+    border-radius: 0 6px 6px 0;
+    background: rgba(193, 138, 50, 0.07);
+    font-size: 11px;
+    line-height: 1.35;
+}
+
+.hero-points-session-limit-note i {
+    margin-right: 3px;
+    color: var(--hero-points-dialog-gold);
+}
+
+.hero-points-session-start-dialog .dialog-buttons {
+    gap: 6px;
+    margin-top: 12px;
+    padding-top: 9px;
+    border-top: 1px solid var(--color-border-light-2, rgba(0, 0, 0, 0.2));
+}
+
+.hero-points-session-start-dialog .dialog-button {
+    min-height: 34px;
+    border-radius: 6px;
+    transition: border-color 140ms ease, background 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+}
+
+.hero-points-session-start-dialog .dialog-button:hover {
+    transform: translateY(-1px);
+}
+
+.hero-points-session-start-dialog .dialog-button.start,
+.hero-points-session-start-dialog .dialog-button[data-button="start"] {
+    border-color: var(--color-warm-2, #9b6b1f);
+    background: linear-gradient(180deg, rgba(193, 138, 50, 0.92), rgba(143, 89, 24, 0.96));
+    color: white;
+    font-weight: 700;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 2px 5px rgba(80, 45, 5, 0.18);
+}
+
+.hero-points-session-start-dialog .dialog-button.start:hover,
+.hero-points-session-start-dialog .dialog-button[data-button="start"]:hover {
+    border-color: #d6a744;
+    background: linear-gradient(180deg, rgba(214, 167, 68, 0.96), rgba(155, 107, 31, 0.98));
+    box-shadow: 0 0 8px rgba(193, 138, 50, 0.3);
+}
+
 @media (max-width: 600px) {
     .hero-points-award-controls {
         grid-template-columns: 1fr;
@@ -1107,8 +1321,13 @@
     }
 
     .hero-points-award-success,
+    .hero-points-session-success,
     .hero-points-award-row-updated,
     .hero-points-summary-updated {
         animation: none;
+    }
+
+    .hero-points-session-start-dialog .dialog-button {
+        transition: none;
     }
 }
