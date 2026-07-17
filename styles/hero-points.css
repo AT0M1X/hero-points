@@ -352,21 +352,51 @@
     flex: 0 0 auto !important;
     height: auto !important;
     min-height: 32px;
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid var(--color-border-light-2, rgba(0, 0, 0, 0.2));
 }
 
 .hero-points-manager-dialog .dialog-buttons .dialog-button {
     height: 32px;
     min-height: 32px;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.045);
+    transition: border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
+}
+
+.hero-points-manager-dialog .dialog-buttons .dialog-button:hover {
+    border-color: var(--color-warm-2, #9b6b1f);
+    background: rgba(155, 107, 31, 0.1);
+    box-shadow: 0 0 5px rgba(155, 107, 31, 0.18);
 }
 
 .hero-points-manager {
+    --hero-points-gold: var(--color-warm-2, #9b6b1f);
+    --hero-points-gold-bright: #d6a744;
+    --hero-points-blue: #4b91cf;
+    --hero-points-green: #62a66f;
+    --hero-points-surface: rgba(0, 0, 0, 0.045);
+    --hero-points-surface-strong: rgba(0, 0, 0, 0.075);
+    --hero-points-border: var(--color-border-light-2, rgba(0, 0, 0, 0.24));
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 14px;
 }
 
 .hero-points-manager button {
     width: auto;
+    border-radius: 6px;
+    transition: border-color 140ms ease, background 140ms ease, box-shadow 140ms ease, color 140ms ease, transform 140ms ease;
+}
+
+.hero-points-manager button:not(:disabled):hover {
+    transform: translateY(-1px);
+}
+
+.hero-points-manager button:disabled {
+    filter: saturate(0.35);
+    opacity: 0.5;
 }
 
 .hero-points-manager-summary {
@@ -374,10 +404,11 @@
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    padding: 10px 12px;
-    border: 1px solid var(--color-border-light-2, rgba(0, 0, 0, 0.25));
-    border-radius: 8px;
-    background: rgba(0, 0, 0, 0.05);
+    padding: 11px 12px;
+    border: 1px solid rgba(155, 107, 31, 0.36);
+    border-radius: 9px;
+    background: linear-gradient(135deg, rgba(155, 107, 31, 0.12), rgba(75, 145, 207, 0.045));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .hero-points-maximum {
@@ -387,7 +418,11 @@
 }
 
 .hero-points-maximum span {
-    opacity: 0.75;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.035em;
+    text-transform: uppercase;
+    opacity: 0.72;
 }
 
 .hero-points-maximum strong {
@@ -396,36 +431,78 @@
     height: 28px;
     place-items: center;
     border-radius: 50%;
-    background: var(--color-warm-2, #9b6b1f);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: linear-gradient(145deg, var(--hero-points-gold-bright), var(--hero-points-gold));
     color: white;
     font-size: 16px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 2px 5px rgba(80, 45, 5, 0.25);
 }
 
 .hero-points-session-start {
     flex: 0 0 auto;
-    padding: 5px 12px;
+    min-height: 34px;
+    padding: 5px 13px;
+    border: 1px solid var(--hero-points-gold);
+    background: rgba(155, 107, 31, 0.16);
+    background: color-mix(in srgb, var(--hero-points-gold) 18%, transparent);
+    font-weight: 700;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+
+.hero-points-session-start i {
+    margin-right: 3px;
+    color: var(--hero-points-gold-bright);
+}
+
+.hero-points-session-start:hover {
+    background: rgba(155, 107, 31, 0.24);
+    background: color-mix(in srgb, var(--hero-points-gold) 26%, transparent);
+    box-shadow: 0 0 7px rgba(193, 138, 50, 0.28);
 }
 
 .hero-points-tabs {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 4px;
-    padding: 4px;
-    border-radius: 8px;
-    background: rgba(0, 0, 0, 0.08);
+    gap: 3px;
+    padding: 3px;
+    border: 1px solid var(--hero-points-border);
+    border-radius: 9px;
+    background: var(--hero-points-surface-strong);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 
 .hero-points-tabs button {
+    min-height: 34px;
     margin: 0;
     border: 0;
-    border-radius: 6px;
+    border-radius: 7px;
     background: transparent;
+    font-weight: 600;
+    opacity: 0.68;
+}
+
+.hero-points-tabs button i {
+    margin-right: 3px;
+}
+
+.hero-points-tabs button[data-tab="award"] i {
+    color: var(--hero-points-gold-bright);
+}
+
+.hero-points-tabs button[data-tab="roster"] i {
+    color: #6cb7f6;
+}
+
+.hero-points-tabs button:hover {
+    background: rgba(255, 255, 255, 0.07);
+    opacity: 0.9;
 }
 
 .hero-points-tabs button.active {
-    background: var(--color-cool-4, rgba(50, 80, 110, 0.85));
+    background: linear-gradient(180deg, rgba(58, 62, 70, 0.94), rgba(34, 36, 41, 0.96));
     color: white;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.13), 0 2px 5px rgba(0, 0, 0, 0.28);
+    opacity: 1;
 }
 
 .hero-points-tab-panel[hidden] {
@@ -436,6 +513,7 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
+    animation: hero-points-panel-enter 150ms ease-out;
 }
 
 .hero-points-award-controls {
@@ -447,16 +525,21 @@
 .hero-points-award-controls fieldset {
     min-width: 0;
     margin: 0;
-    padding: 0;
-    border: 0;
+    padding: 9px 10px 10px;
+    border: 1px solid var(--hero-points-border);
+    border-radius: 8px;
+    background: var(--hero-points-surface);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .hero-points-award-controls legend {
-    margin-bottom: 5px;
+    margin-left: -2px;
+    padding: 0 4px;
     font-size: 12px;
     font-weight: bold;
+    letter-spacing: 0.035em;
     text-transform: uppercase;
-    opacity: 0.72;
+    opacity: 0.7;
 }
 
 .hero-points-segmented-control {
@@ -477,22 +560,38 @@
 
 .hero-points-segmented-control span {
     display: block;
-    padding: 6px 8px;
-    border: 1px solid var(--color-border-light-2, rgba(0, 0, 0, 0.3));
-    border-radius: 5px;
+    padding: 7px 8px;
+    border: 1px solid var(--hero-points-border);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.04);
     text-align: center;
     cursor: pointer;
+    transition: border-color 140ms ease, background 140ms ease, box-shadow 140ms ease, color 140ms ease;
 }
 
-.hero-points-segmented-control input:checked + span {
-    border-color: var(--color-warm-2, #9b6b1f);
+.hero-points-segmented-control label:hover span {
+    background: rgba(255, 255, 255, 0.09);
+}
+
+.hero-points-segmented-control input[value="persistent"]:checked + span {
+    border-color: var(--hero-points-gold);
     background: rgba(155, 107, 31, 0.18);
-    background: color-mix(in srgb, var(--color-warm-2, #9b6b1f) 22%, transparent);
+    background: color-mix(in srgb, var(--hero-points-gold) 22%, transparent);
+    color: var(--hero-points-gold-bright);
     font-weight: bold;
+    box-shadow: inset 0 0 0 1px rgba(214, 167, 68, 0.11), 0 0 5px rgba(193, 138, 50, 0.12);
+}
+
+.hero-points-segmented-control input[value="ephemeral"]:checked + span {
+    border-color: var(--hero-points-blue);
+    background: rgba(75, 145, 207, 0.18);
+    color: #6cb7f6;
+    font-weight: bold;
+    box-shadow: inset 0 0 0 1px rgba(108, 183, 246, 0.1), 0 0 5px rgba(75, 145, 207, 0.12);
 }
 
 .hero-points-segmented-control input:focus-visible + span {
-    outline: 2px solid var(--color-warm-2, #9b6b1f);
+    outline: 2px solid var(--hero-points-gold);
     outline-offset: 1px;
 }
 
@@ -506,21 +605,49 @@
 .hero-points-stepper input {
     height: 32px;
     margin: 0;
+    border-radius: 6px;
 }
 
 .hero-points-stepper input {
+    border-color: var(--hero-points-border);
+    background: rgba(255, 255, 255, 0.06);
+    font-weight: bold;
     text-align: center;
 }
 
+.hero-points-stepper button {
+    border-color: var(--hero-points-border);
+    background: var(--hero-points-surface);
+}
+
+.hero-points-stepper button:hover {
+    border-color: var(--hero-points-gold);
+    color: var(--hero-points-gold-bright);
+}
+
 .hero-points-advanced {
-    padding: 7px 10px;
-    border: 1px solid var(--color-border-light-2, rgba(0, 0, 0, 0.22));
-    border-radius: 6px;
+    padding: 8px 10px;
+    border: 1px solid var(--hero-points-border);
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.025);
+    transition: border-color 140ms ease, background 140ms ease;
 }
 
 .hero-points-advanced summary {
     cursor: pointer;
     font-weight: bold;
+    opacity: 0.78;
+    transition: color 140ms ease, opacity 140ms ease;
+}
+
+.hero-points-advanced summary:hover {
+    color: var(--hero-points-gold);
+    opacity: 1;
+}
+
+.hero-points-advanced[open] {
+    border-color: rgba(155, 107, 31, 0.42);
+    background: rgba(155, 107, 31, 0.055);
 }
 
 .hero-points-mode-options {
@@ -552,6 +679,12 @@
     opacity: 0.68;
 }
 
+.hero-points-list-heading h3,
+.hero-points-roster-section h3 {
+    font-size: 14px;
+    letter-spacing: 0.015em;
+}
+
 .hero-points-list-actions {
     display: flex;
     gap: 4px;
@@ -560,17 +693,25 @@
 .hero-points-list-actions button,
 .hero-points-roster-move {
     padding: 3px 8px;
+    border-color: var(--hero-points-border);
+    background: rgba(255, 255, 255, 0.045);
     font-size: 12px;
+}
+
+.hero-points-list-actions button:hover,
+.hero-points-roster-move:hover {
+    border-color: var(--hero-points-gold);
+    background: rgba(155, 107, 31, 0.09);
 }
 
 .hero-points-award-list,
 .hero-points-roster-list {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 6px;
     max-height: 330px;
     overflow-y: auto;
-    padding: 2px;
+    padding: 3px;
 }
 
 .hero-points-award-row {
@@ -579,14 +720,29 @@
     gap: 7px;
     width: 100%;
     box-sizing: border-box;
-    padding: 7px 8px;
+    padding: 8px 9px;
     border: 1px solid transparent;
-    border-radius: 7px;
-    background: rgba(0, 0, 0, 0.045);
+    border-radius: 8px;
+    background: var(--hero-points-surface);
+    box-shadow: inset 3px 0 0 transparent;
+    transition: border-color 140ms ease, background 140ms ease, box-shadow 140ms ease, opacity 140ms ease, transform 140ms ease;
 }
 
 .hero-points-award-row:hover {
-    border-color: var(--color-border-light-2, rgba(0, 0, 0, 0.25));
+    border-color: var(--hero-points-border);
+    background: var(--hero-points-surface-strong);
+    transform: translateX(2px);
+}
+
+.hero-points-award-row:has(input[name="actor"]:checked) {
+    border-color: rgba(155, 107, 31, 0.3);
+    background: linear-gradient(90deg, rgba(155, 107, 31, 0.1), rgba(0, 0, 0, 0.035) 42%);
+    box-shadow: inset 3px 0 0 var(--hero-points-gold);
+}
+
+.hero-points-award-row:not(:has(input[name="actor"]:checked)) .hero-points-character-name,
+.hero-points-award-row:not(:has(input[name="actor"]:checked)) .hero-points-point-summary {
+    opacity: 0.62;
 }
 
 .hero-points-award-selection {
@@ -601,7 +757,10 @@
 
 .hero-points-award-selection input {
     flex: 0 0 auto;
+    width: 16px;
+    height: 16px;
     margin: 0;
+    accent-color: var(--hero-points-gold);
 }
 
 .hero-points-character-name,
@@ -633,10 +792,11 @@
     gap: 3px;
     min-height: 22px;
     padding: 3px 6px;
-    border: 1px solid currentColor;
+    border: 1px solid color-mix(in srgb, currentColor 72%, transparent);
     border-radius: 999px;
     text-align: center;
     white-space: nowrap;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .hero-points-summary-session {
@@ -655,29 +815,93 @@
 }
 
 .hero-points-award-footer {
-    padding-top: 2px;
+    padding: 9px 10px;
+    border: 1px solid var(--hero-points-border);
+    border-radius: 8px;
+    background: var(--hero-points-surface);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.hero-points-award-footer > span {
+    font-size: 12px;
+    opacity: 0.78;
+}
+
+.hero-points-award-footer [data-selected-count] {
+    display: inline-grid;
+    min-width: 23px;
+    height: 23px;
+    margin-right: 3px;
+    place-items: center;
+    border-radius: 999px;
+    background: rgba(155, 107, 31, 0.16);
+    color: var(--hero-points-gold);
+    font-size: 12px;
 }
 
 .hero-points-apply-award {
     min-width: 140px;
-    padding: 6px 12px;
+    min-height: 34px;
+    padding: 6px 13px;
+    border-color: var(--hero-points-gold);
+    background: linear-gradient(180deg, rgba(193, 138, 50, 0.92), rgba(143, 89, 24, 0.96));
+    color: white;
+    font-weight: 700;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 2px 5px rgba(80, 45, 5, 0.2);
+}
+
+.hero-points-apply-award:hover {
+    border-color: var(--hero-points-gold-bright);
+    background: linear-gradient(180deg, rgba(214, 167, 68, 0.96), rgba(155, 107, 31, 0.98));
+    box-shadow: 0 0 8px rgba(193, 138, 50, 0.32);
+}
+
+.hero-points-manager:has(input[name="kind"][value="ephemeral"]:checked) .hero-points-apply-award {
+    border-color: var(--hero-points-blue);
+    background: linear-gradient(180deg, rgba(75, 145, 207, 0.94), rgba(42, 92, 137, 0.98));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 2px 5px rgba(20, 55, 85, 0.22);
+}
+
+.hero-points-manager:has(input[name="kind"][value="ephemeral"]:checked) .hero-points-apply-award:hover {
+    border-color: #6cb7f6;
+    background: linear-gradient(180deg, rgba(108, 183, 246, 0.96), rgba(53, 119, 177, 0.98));
+    box-shadow: 0 0 8px rgba(75, 145, 207, 0.34);
 }
 
 .hero-points-roster-help {
     margin: 0;
-    opacity: 0.75;
+    padding: 7px 9px;
+    border-left: 3px solid var(--hero-points-blue);
+    border-radius: 0 6px 6px 0;
+    background: rgba(75, 145, 207, 0.07);
+    font-size: 12px;
+    opacity: 0.78;
 }
 
 .hero-points-roster-section {
-    padding: 9px;
-    border: 1px solid var(--color-border-light-2, rgba(0, 0, 0, 0.25));
-    border-radius: 7px;
-    transition: border-color 120ms ease, background 120ms ease;
+    padding: 10px;
+    border: 1px solid var(--hero-points-border);
+    border-radius: 9px;
+    background: var(--hero-points-surface);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    transition: border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
+}
+
+.hero-points-roster-section[data-in-use="true"] {
+    border-color: rgba(75, 145, 207, 0.35);
+    box-shadow: inset 3px 0 0 var(--hero-points-blue), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .hero-points-inactive-section > summary {
     cursor: pointer;
     font-weight: bold;
+    opacity: 0.74;
+    transition: color 140ms ease, opacity 140ms ease;
+}
+
+.hero-points-inactive-section > summary:hover {
+    color: var(--hero-points-gold);
+    opacity: 1;
 }
 
 .hero-points-inactive-section[open] > summary {
@@ -691,7 +915,16 @@
     margin-left: auto;
     place-items: center;
     border-radius: 999px;
-    background: rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--hero-points-border);
+    background: var(--hero-points-surface-strong);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+
+.hero-points-roster-section[data-in-use="true"] .hero-points-count {
+    border-color: rgba(75, 145, 207, 0.42);
+    background: rgba(75, 145, 207, 0.14);
+    color: var(--hero-points-blue);
 }
 
 .hero-points-drop-hint {
@@ -705,15 +938,37 @@
     grid-template-columns: 22px minmax(0, 1fr) auto;
     align-items: center;
     gap: 7px;
-    padding: 6px 7px;
-    border-radius: 5px;
-    background: rgba(0, 0, 0, 0.045);
+    padding: 7px 8px;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    background: rgba(0, 0, 0, 0.035);
+    transition: border-color 140ms ease, background 140ms ease, opacity 140ms ease, transform 140ms ease;
+}
+
+.hero-points-roster-row:hover {
+    border-color: var(--hero-points-border);
+    background: var(--hero-points-surface-strong);
+    transform: translateX(2px);
+}
+
+.hero-points-inactive-section .hero-points-roster-row {
+    opacity: 0.68;
+}
+
+.hero-points-inactive-section .hero-points-roster-row:hover {
+    opacity: 1;
 }
 
 .hero-points-drag-handle {
     text-align: center;
     cursor: grab;
-    opacity: 0.45;
+    opacity: 0.38;
+    transition: color 140ms ease, opacity 140ms ease;
+}
+
+.hero-points-roster-row:hover .hero-points-drag-handle {
+    color: var(--hero-points-blue);
+    opacity: 0.85;
 }
 
 .hero-points-roster-row.dragging {
@@ -726,23 +981,36 @@
 }
 
 .hero-points-roster-section.drag-over {
-    border-color: var(--color-warm-2, #9b6b1f);
+    border-color: var(--hero-points-gold);
     background: rgba(155, 107, 31, 0.1);
-    background: color-mix(in srgb, var(--color-warm-2, #9b6b1f) 12%, transparent);
+    background: color-mix(in srgb, var(--hero-points-gold) 12%, transparent);
+    box-shadow: inset 0 0 0 1px var(--hero-points-gold), 0 0 8px rgba(193, 138, 50, 0.2);
 }
 
 .hero-points-empty {
     display: none;
     margin: 4px 0;
     padding: 12px;
-    border: 1px dashed var(--color-border-light-2, rgba(0, 0, 0, 0.25));
-    border-radius: 5px;
+    border: 1px dashed var(--hero-points-border);
+    border-radius: 7px;
+    background: rgba(0, 0, 0, 0.02);
     text-align: center;
     opacity: 0.65;
 }
 
 .hero-points-empty.visible {
     display: block;
+}
+
+@keyframes hero-points-panel-enter {
+    from {
+        opacity: 0;
+        transform: translateY(3px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 @media (max-width: 600px) {
@@ -761,5 +1029,19 @@
     .hero-points-summary-pill {
         min-width: 38px;
         padding-inline: 4px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hero-points-tab-panel {
+        animation: none;
+    }
+
+    .hero-points-manager button,
+    .hero-points-award-row,
+    .hero-points-roster-row,
+    .hero-points-roster-section,
+    .hero-points-segmented-control span {
+        transition: none;
     }
 }
