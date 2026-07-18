@@ -13,6 +13,16 @@ const STATE_FLAG = "state";
 const IN_USE_FLAG = "inUse";
 const HERO_POINT_FEEDBACK_DURATION = 1600;
 const heroPointFeedbackByActor = new Map();
+const managerRowFeedbackTimeouts = new WeakMap();
+
+const INSPIRATION_CONTROL_SELECTOR = [
+    '.sheet-header button.inspiration[data-action="toggleInspiration"]',
+    '.sheet-header [data-application-action="inspiration"]',
+    '.sheet-header [data-action="inspiration"]',
+    '.sheet-header [data-action="toggleInspiration"]',
+    '.sheet-header [data-tooltip*="Inspiration"]',
+    '.sheet-header [aria-label*="Inspiration"]'
+].join(", ");
 
 /* ----------------- HELPERS ----------------- */
 
@@ -175,6 +185,27 @@ function escapeHtml(value) {
     })[character]);
 }
 
+function createElementFromMarkup(markup) {
+    const template = document.createElement("template");
+    template.innerHTML = markup.trim();
+    return template.content.firstElementChild;
+}
+
+function getRenderElement(value) {
+    if (value?.nodeType === 1 && typeof value.querySelector === "function") return value;
+
+    const first = value?.[0];
+    if (first?.nodeType === 1 && typeof first.querySelector === "function") return first;
+
+    return null;
+}
+
+function getDialogV2() {
+    const DialogV2 = globalThis.foundry?.applications?.api?.DialogV2;
+    if (!DialogV2) throw new Error("Foundry DialogV2 API is unavailable.");
+    return DialogV2;
+}
+
 async function migrateLegacyHeroPoints() {
     if (!game.user.isGM) return;
 
@@ -238,45 +269,44 @@ function createHeroPointsElement(actor) {
     </div>
   `;
 
-    return $(html);
+    return createElementFromMarkup(html);
 }
 
-function attachHeroPointsListeners(sheet, root) {
+function attachHeroPointsListeners(sheet, counter) {
     const actor = sheet.actor;
-    const counter = root.find(".hero-points-counter");
-    if (!counter.length) {
+    if (!counter) {
         log("attachHeroPointsListeners: no .hero-points-counter found");
         return;
     }
 
-    const valueSpan = counter.find(".hero-points-value");
-    const useButton = counter.find(".hero-points-use");
-    const popover = counter.find(".hero-points-popover");
+    const valueSpan = counter.querySelector(".hero-points-value");
+    const useButton = counter.querySelector(".hero-points-use");
+    const popover = counter.querySelector(".hero-points-popover");
+    if (!valueSpan || !useButton || !popover) return;
+
     const max = getMaxHeroPoints();
+    const feedbackClasses = [
+        "hero-points-feedback-active",
+        "hero-points-feedback-session",
+        "hero-points-feedback-persistent",
+        "hero-points-feedback-empty",
+        "hero-points-feedback-restored"
+    ];
 
     function applyFeedback(feedback) {
-        const feedbackClasses = [
-            "hero-points-feedback-active",
-            "hero-points-feedback-session",
-            "hero-points-feedback-persistent",
-            "hero-points-feedback-empty",
-            "hero-points-feedback-restored"
-        ];
         if (!feedback) {
-            counter.removeClass(feedbackClasses.join(" "));
+            counter.classList.remove(...feedbackClasses);
             return;
         }
 
-        const shouldAnimateEntrance = !counter.hasClass("hero-points-feedback-active") && !feedback.animated;
-        counter.removeClass(feedbackClasses.join(" "));
+        const shouldAnimateEntrance = !counter.classList.contains("hero-points-feedback-active") && !feedback.animated;
+        counter.classList.remove(...feedbackClasses);
 
         // The feedback markup and state class are otherwise applied in the same
         // render cycle, which lets browsers skip the entrance transition.
-        if (shouldAnimateEntrance && counter[0]) {
-            void counter[0].offsetWidth;
-        }
+        if (shouldAnimateEntrance) void counter.offsetWidth;
 
-        counter.addClass(heroPointFeedbackClasses(feedback).trim());
+        counter.classList.add(...heroPointFeedbackClasses(feedback).trim().split(/\s+/));
         feedback.animated = true;
 
         const remainingDuration = Math.max(0, feedback.expiresAt - Date.now());
@@ -285,23 +315,23 @@ function attachHeroPointsListeners(sheet, root) {
             if (currentFeedback && currentFeedback.expiresAt !== feedback.expiresAt) return;
 
             if (currentFeedback) heroPointFeedbackByActor.delete(actor.id);
-            counter.removeClass(feedbackClasses.join(" "));
+            counter.classList.remove(...feedbackClasses);
         }, remainingDuration);
     }
 
     function syncDisplay(state) {
         const tooltip = heroPointTooltip(state, max);
         const feedback = getHeroPointFeedback(actor.id);
-        valueSpan.text(getHeroPointTotal(state, max));
-        popover.html(heroPointPopoverMarkup(state, max, feedback));
-        useButton.attr("aria-label", tooltip);
+        valueSpan.textContent = String(getHeroPointTotal(state, max));
+        popover.innerHTML = heroPointPopoverMarkup(state, max, feedback);
+        useButton.setAttribute("aria-label", tooltip);
         applyFeedback(feedback);
     }
 
     applyFeedback(getHeroPointFeedback(actor.id));
 
     // Spend hero point (any owner can do this)
-    useButton.on("click", async (event) => {
+    useButton.addEventListener("click", async (event) => {
         event.preventDefault();
 
         const result = spendHeroPoint(getHeroPointState(actor), max);
@@ -324,7 +354,7 @@ function attachHeroPointsListeners(sheet, root) {
         });
     });
 
-    useButton.on("keydown", (event) => {
+    useButton.addEventListener("keydown", (event) => {
         if (event.key !== "Enter" && event.key !== " ") return;
         event.preventDefault();
         event.currentTarget.click();
@@ -380,7 +410,7 @@ export function managerMarkup(actors, max) {
     const inUseRows = inUseActors.map((actor) => rosterRowMarkup(actor, true)).join("");
     const inactiveRows = inactiveActors.map((actor) => rosterRowMarkup(actor, false)).join("");
 
-    return `<form class="hero-points-manager">
+    return `<div class="hero-points-manager">
     <div class="hero-points-manager-summary">
       <div class="hero-points-maximum">
         <span>Maximum per character</span>
@@ -478,7 +508,7 @@ export function managerMarkup(actors, max) {
         </div>
       </details>
     </section>
-  </form>`;
+  </div>`;
 }
 
 function openHeroPointsDialog() {
@@ -490,255 +520,267 @@ function openHeroPointsDialog() {
         return;
     }
 
-    let managerDialog;
-    managerDialog = new Dialog({
-        title: "Hero Points",
-        content: managerMarkup(actors, max),
-        buttons: {
-            close: {
-                label: "Close"
-            }
-        },
-        render: (html) => {
-            const awardList = html.find(".hero-points-award-list");
-            let awardFeedbackTimeout;
-            let sessionFeedbackTimeout;
+    const DialogV2 = getDialogV2();
+    const managerDialog = new DialogV2({
+        window: { title: "Hero Points" },
+        content: createElementFromMarkup(managerMarkup(actors, max)),
+        buttons: [{ action: "close", label: "Close" }],
+        classes: ["hero-points-manager-dialog"],
+        position: { width: 640, height: "auto" }
+    });
 
-            function resizeManagerDialog() {
-                requestAnimationFrame(() => managerDialog.setPosition({ height: "auto" }));
-            }
+    managerDialog.addEventListener("render", () => {
+        const html = managerDialog.element;
+        const awardList = html.querySelector(".hero-points-award-list");
+        if (!awardList) return;
 
-            function sortRows(container, selector) {
-                const rows = container.children(selector).get();
-                rows.sort((left, right) => String(left.dataset.sortName).localeCompare(String(right.dataset.sortName)));
-                container.prepend(rows);
-            }
+        let awardFeedbackTimeout;
+        let sessionFeedbackTimeout;
+        const query = (selector) => html.querySelector(selector);
+        const queryAll = (selector) => Array.from(html.querySelectorAll(selector));
 
-            function updateAwardSelection() {
-                const selected = awardList.find("input[name='actor']:checked").length;
-                html.find("[data-selected-count]").text(selected);
-                html.find(".hero-points-apply-award").prop("disabled", selected === 0);
-            }
+        function resizeManagerDialog() {
+            requestAnimationFrame(() => managerDialog.setPosition({ height: "auto" }));
+        }
 
-            function updateAwardRow(actor, highlightKind = null) {
-                const state = getHeroPointState(actor);
-                const total = getHeroPointTotal(state, max);
-                const row = awardList.find(`.hero-points-award-row[data-actor-id="${actor.id}"]`);
-                row.find('[data-point-value="ephemeral"]').text(state.ephemeral);
-                row.find('[data-point-value="persistent"]').text(state.persistent);
-                row.find('[data-point-value="total"]').text(total);
-                row.find(".hero-points-point-summary")
-                    .attr("aria-label", `Session ${state.ephemeral}, persistent ${state.persistent}, total ${total} of ${max}`);
-                row.find(".hero-points-summary-session").attr("title", `Session: ${state.ephemeral}`);
-                row.find(".hero-points-summary-persistent").attr("title", `Persistent: ${state.persistent}`);
-                row.find(".hero-points-summary-total").attr("title", `Total: ${total}/${max}`);
+        function sortRows(container, selector) {
+            const rows = Array.from(container.children).filter((child) => child.matches(selector));
+            rows.sort((left, right) => String(left.dataset.sortName).localeCompare(String(right.dataset.sortName)));
+            container.prepend(...rows);
+        }
 
-                if (highlightKind && row.length) {
-                    const typeClass = highlightKind === "ephemeral"
-                        ? "hero-points-award-row-updated-session"
-                        : "hero-points-award-row-updated-persistent";
-                    const poolPill = highlightKind === "ephemeral"
-                        ? row.find(".hero-points-summary-session")
-                        : row.find(".hero-points-summary-persistent");
-                    const highlightedPills = poolPill.add(row.find(".hero-points-summary-total"));
-                    const existingTimeout = row.data("heroPointsUpdateTimeout");
-                    if (existingTimeout) clearTimeout(existingTimeout);
+        function updateAwardSelection() {
+            const selected = awardList.querySelectorAll("input[name='actor']:checked").length;
+            const selectedCount = query("[data-selected-count]");
+            const applyButton = query(".hero-points-apply-award");
+            if (selectedCount) selectedCount.textContent = String(selected);
+            if (applyButton) applyButton.disabled = selected === 0;
+        }
 
-                    row.removeClass(
-                        "hero-points-award-row-updated " +
-                        "hero-points-award-row-updated-session " +
-                        "hero-points-award-row-updated-persistent"
-                    );
-                    highlightedPills.removeClass("hero-points-summary-updated");
-                    if (row[0]) void row[0].offsetWidth;
-                    row.addClass(`hero-points-award-row-updated ${typeClass}`);
-                    highlightedPills.addClass("hero-points-summary-updated");
+        function updateAwardRow(actor, highlightKind = null) {
+            const row = awardList.querySelector(`.hero-points-award-row[data-actor-id="${actor.id}"]`);
+            if (!row) return;
 
-                    row.data("heroPointsUpdateTimeout", setTimeout(() => {
-                        row.removeClass(
-                            "hero-points-award-row-updated " +
-                            "hero-points-award-row-updated-session " +
-                            "hero-points-award-row-updated-persistent"
-                        );
-                        highlightedPills.removeClass("hero-points-summary-updated");
-                        row.removeData("heroPointsUpdateTimeout");
-                    }, 1000));
-                }
-            }
+            const state = getHeroPointState(actor);
+            const total = getHeroPointTotal(state, max);
+            row.querySelector('[data-point-value="ephemeral"]').textContent = String(state.ephemeral);
+            row.querySelector('[data-point-value="persistent"]').textContent = String(state.persistent);
+            row.querySelector('[data-point-value="total"]').textContent = String(total);
+            row.querySelector(".hero-points-point-summary")
+                ?.setAttribute("aria-label", `Session ${state.ephemeral}, persistent ${state.persistent}, total ${total} of ${max}`);
+            row.querySelector(".hero-points-summary-session")?.setAttribute("title", `Session: ${state.ephemeral}`);
+            row.querySelector(".hero-points-summary-persistent")?.setAttribute("title", `Persistent: ${state.persistent}`);
+            row.querySelector(".hero-points-summary-total")?.setAttribute("title", `Total: ${total}/${max}`);
 
-            function restoreAwardButtonLabel() {
-                const mode = html.find('input[name="mode"]:checked').val() || "add";
-                const label = mode === "set" ? "Apply Adjustment" : "Award Points";
-                html.find(".hero-points-apply-award").html(`<i class="fas fa-star"></i> ${label}`);
-            }
+            if (!highlightKind) return;
 
-            function clearAwardFeedback() {
-                if (awardFeedbackTimeout) clearTimeout(awardFeedbackTimeout);
-                awardFeedbackTimeout = undefined;
-                html.find(".hero-points-apply-award")
-                    .removeClass("hero-points-award-success hero-points-award-limit");
+            const typeClass = highlightKind === "ephemeral"
+                ? "hero-points-award-row-updated-session"
+                : "hero-points-award-row-updated-persistent";
+            const poolPill = row.querySelector(highlightKind === "ephemeral"
+                ? ".hero-points-summary-session"
+                : ".hero-points-summary-persistent");
+            const highlightedPills = [poolPill, row.querySelector(".hero-points-summary-total")].filter(Boolean);
+            const existingTimeout = managerRowFeedbackTimeouts.get(row);
+            if (existingTimeout) clearTimeout(existingTimeout);
+
+            row.classList.remove(
+                "hero-points-award-row-updated",
+                "hero-points-award-row-updated-session",
+                "hero-points-award-row-updated-persistent"
+            );
+            for (const pill of highlightedPills) pill.classList.remove("hero-points-summary-updated");
+            void row.offsetWidth;
+            row.classList.add("hero-points-award-row-updated", typeClass);
+            for (const pill of highlightedPills) pill.classList.add("hero-points-summary-updated");
+
+            managerRowFeedbackTimeouts.set(row, setTimeout(() => {
+                row.classList.remove(
+                    "hero-points-award-row-updated",
+                    "hero-points-award-row-updated-session",
+                    "hero-points-award-row-updated-persistent"
+                );
+                for (const pill of highlightedPills) pill.classList.remove("hero-points-summary-updated");
+                managerRowFeedbackTimeouts.delete(row);
+            }, 1000));
+        }
+
+        function restoreAwardButtonLabel() {
+            const mode = query('input[name="mode"]:checked')?.value || "add";
+            const label = mode === "set" ? "Apply Adjustment" : "Award Points";
+            const applyButton = query(".hero-points-apply-award");
+            if (applyButton) applyButton.innerHTML = `<i class="fas fa-star"></i> ${label}`;
+        }
+
+        function clearAwardFeedback() {
+            if (awardFeedbackTimeout) clearTimeout(awardFeedbackTimeout);
+            awardFeedbackTimeout = undefined;
+            query(".hero-points-apply-award")?.classList.remove("hero-points-award-success", "hero-points-award-limit");
+            restoreAwardButtonLabel();
+        }
+
+        function showAwardFeedback() {
+            const applyButton = query(".hero-points-apply-award");
+            if (!applyButton) return;
+            if (awardFeedbackTimeout) clearTimeout(awardFeedbackTimeout);
+            applyButton.classList.remove("hero-points-award-success", "hero-points-award-limit");
+            void applyButton.offsetWidth;
+            applyButton.classList.add("hero-points-award-success");
+            applyButton.innerHTML = '<i class="fas fa-check"></i> Points updated!';
+
+            awardFeedbackTimeout = setTimeout(() => {
+                applyButton.classList.remove("hero-points-award-success", "hero-points-award-limit");
                 restoreAwardButtonLabel();
+                awardFeedbackTimeout = undefined;
+            }, 1500);
+        }
+
+        function showAwardLimitFeedback(message) {
+            const applyButton = query(".hero-points-apply-award");
+            if (!applyButton) return;
+            if (awardFeedbackTimeout) clearTimeout(awardFeedbackTimeout);
+            applyButton.classList.remove("hero-points-award-success", "hero-points-award-limit");
+            void applyButton.offsetWidth;
+            applyButton.classList.add("hero-points-award-limit");
+            applyButton.innerHTML = `<i class="fas fa-circle-minus"></i> ${message}`;
+
+            awardFeedbackTimeout = setTimeout(() => {
+                applyButton.classList.remove("hero-points-award-success", "hero-points-award-limit");
+                restoreAwardButtonLabel();
+                awardFeedbackTimeout = undefined;
+            }, 1500);
+        }
+
+        function refreshAwardRows(highlightKind = null, highlightedActorIds = []) {
+            const highlightedIds = new Set(highlightedActorIds);
+            for (const actor of getCharacterRoster().filter(isActorInUse)) {
+                updateAwardRow(actor, highlightedIds.has(actor.id) ? highlightKind : null);
             }
+        }
 
-            function showAwardFeedback() {
-                const applyButton = html.find(".hero-points-apply-award");
-                if (awardFeedbackTimeout) clearTimeout(awardFeedbackTimeout);
-                applyButton.removeClass("hero-points-award-success hero-points-award-limit");
-                if (applyButton[0]) void applyButton[0].offsetWidth;
-                applyButton
-                    .addClass("hero-points-award-success")
-                    .html('<i class="fas fa-check"></i> Points updated!');
+        function restoreSessionStartButton() {
+            const startButton = query(".hero-points-session-start");
+            if (!startButton) return;
+            startButton.classList.remove("hero-points-session-success");
+            startButton.innerHTML = '<i class="fas fa-play"></i> Start Session';
+        }
 
-                awardFeedbackTimeout = setTimeout(() => {
-                    applyButton.removeClass("hero-points-award-success hero-points-award-limit");
-                    restoreAwardButtonLabel();
-                    awardFeedbackTimeout = undefined;
-                }, 1500);
-            }
+        function clearSessionStartFeedback() {
+            if (sessionFeedbackTimeout) clearTimeout(sessionFeedbackTimeout);
+            sessionFeedbackTimeout = undefined;
+            restoreSessionStartButton();
+        }
 
-            function showAwardLimitFeedback(message) {
-                const applyButton = html.find(".hero-points-apply-award");
-                if (awardFeedbackTimeout) clearTimeout(awardFeedbackTimeout);
-                applyButton.removeClass("hero-points-award-success hero-points-award-limit");
-                if (applyButton[0]) void applyButton[0].offsetWidth;
-                applyButton
-                    .addClass("hero-points-award-limit")
-                    .html(`<i class="fas fa-circle-minus"></i> ${message}`);
+        function showSessionStartFeedback(changedActorIds) {
+            const startButton = query(".hero-points-session-start");
+            if (!startButton) return;
+            if (sessionFeedbackTimeout) clearTimeout(sessionFeedbackTimeout);
+            startButton.classList.remove("hero-points-session-success");
+            void startButton.offsetWidth;
+            startButton.classList.add("hero-points-session-success");
+            startButton.innerHTML = '<i class="fas fa-check"></i> Session started!';
+            refreshAwardRows("ephemeral", changedActorIds);
 
-                awardFeedbackTimeout = setTimeout(() => {
-                    applyButton.removeClass("hero-points-award-success hero-points-award-limit");
-                    restoreAwardButtonLabel();
-                    awardFeedbackTimeout = undefined;
-                }, 1500);
-            }
-
-            function refreshAwardRows(highlightKind = null, highlightedActorIds = []) {
-                const highlightedIds = new Set(highlightedActorIds);
-                for (const actor of getCharacterRoster().filter(isActorInUse)) {
-                    updateAwardRow(actor, highlightedIds.has(actor.id) ? highlightKind : null);
-                }
-            }
-
-            function restoreSessionStartButton() {
-                html.find(".hero-points-session-start")
-                    .removeClass("hero-points-session-success")
-                    .html('<i class="fas fa-play"></i> Start Session');
-            }
-
-            function clearSessionStartFeedback() {
-                if (sessionFeedbackTimeout) clearTimeout(sessionFeedbackTimeout);
-                sessionFeedbackTimeout = undefined;
+            sessionFeedbackTimeout = setTimeout(() => {
                 restoreSessionStartButton();
+                sessionFeedbackTimeout = undefined;
+            }, 1600);
+        }
+
+        function updateRosterCounts() {
+            for (const inUse of [true, false]) {
+                const list = query(`[data-roster-list="${inUse}"]`);
+                const count = list?.querySelectorAll(".hero-points-roster-row").length || 0;
+                const countElement = query(`[data-roster-count="${inUse}"]`);
+                const emptyElement = query(`[data-empty-roster="${inUse}"]`);
+                if (countElement) countElement.textContent = String(count);
+                emptyElement?.classList.toggle("visible", count === 0);
             }
 
-            function showSessionStartFeedback(changedActorIds) {
-                const startButton = html.find(".hero-points-session-start");
-                if (sessionFeedbackTimeout) clearTimeout(sessionFeedbackTimeout);
-                startButton.removeClass("hero-points-session-success");
-                if (startButton[0]) void startButton[0].offsetWidth;
-                startButton
-                    .addClass("hero-points-session-success")
-                    .html('<i class="fas fa-check"></i> Session started!');
-                refreshAwardRows("ephemeral", changedActorIds);
+            const awardCount = awardList.querySelectorAll(".hero-points-award-row").length;
+            const awardCountElement = query("[data-award-count]");
+            if (awardCountElement) awardCountElement.textContent = String(awardCount);
+            query("[data-empty-awards]")?.classList.toggle("visible", awardCount === 0);
+            updateAwardSelection();
+            resizeManagerDialog();
+        }
 
-                sessionFeedbackTimeout = setTimeout(() => {
-                    restoreSessionStartButton();
-                    sessionFeedbackTimeout = undefined;
-                }, 1600);
-            }
+        async function moveRosterActor(actorId, targetInUse) {
+            const actor = game.actors.get(actorId);
+            if (!actor || isActorInUse(actor) === targetInUse) return;
 
-            function updateRosterCounts() {
-                for (const inUse of [true, false]) {
-                    const list = html.find(`[data-roster-list="${inUse}"]`);
-                    const count = list.find(".hero-points-roster-row").length;
-                    html.find(`[data-roster-count="${inUse}"]`).text(count);
-                    html.find(`[data-empty-roster="${inUse}"]`).toggleClass("visible", count === 0);
+            const rosterRow = query(`.hero-points-roster-row[data-actor-id="${actorId}"]`);
+            if (!rosterRow) return;
+            rosterRow.classList.add("saving");
+
+            try {
+                await actor.setFlag(MODULE_ID, IN_USE_FLAG, targetInUse);
+
+                const targetList = query(`[data-roster-list="${targetInUse}"]`);
+                const moveButton = rosterRow.querySelector(".hero-points-roster-move");
+                moveButton.dataset.targetInUse = String(!targetInUse);
+                moveButton.innerHTML = targetInUse
+                    ? '<i class="fas fa-arrow-down"></i> Move out'
+                    : '<i class="fas fa-arrow-up"></i> Move in';
+                targetList.prepend(rosterRow);
+                sortRows(targetList, ".hero-points-roster-row");
+
+                const existingAwardRow = awardList.querySelector(`.hero-points-award-row[data-actor-id="${actorId}"]`);
+                if (targetInUse && !existingAwardRow) {
+                    awardList.prepend(createElementFromMarkup(awardRowMarkup(actor, max)));
+                    sortRows(awardList, ".hero-points-award-row");
+                } else if (!targetInUse) {
+                    existingAwardRow?.remove();
                 }
 
-                const awardCount = awardList.find(".hero-points-award-row").length;
-                html.find("[data-award-count]").text(awardCount);
-                html.find("[data-empty-awards]").toggleClass("visible", awardCount === 0);
-                updateAwardSelection();
+                updateRosterCounts();
+            } catch (error) {
+                ui.notifications?.error(`Could not update ${actor.name}'s roster status.`);
+                console.error(`${MODULE_ID} | Could not update roster status:`, error);
+            } finally {
+                rosterRow.classList.remove("saving");
+            }
+        }
+
+        html.addEventListener("click", async (event) => {
+            const target = event.target.closest?.("button, a");
+            if (!target || !html.contains(target)) return;
+
+            if (target.matches("[data-tab]")) {
+                const tab = target.dataset.tab;
+                for (const button of queryAll("[data-tab]")) {
+                    button.classList.toggle("active", button === target);
+                    button.setAttribute("aria-selected", String(button === target));
+                }
+                for (const panel of queryAll("[data-panel]")) panel.hidden = panel.dataset.panel !== tab;
                 resizeManagerDialog();
+                return;
             }
 
-            async function moveRosterActor(actorId, targetInUse) {
-                const actor = game.actors.get(actorId);
-                if (!actor || isActorInUse(actor) === targetInUse) return;
-
-                const rosterRow = html.find(`.hero-points-roster-row[data-actor-id="${actorId}"]`);
-                rosterRow.addClass("saving");
-
-                try {
-                    await actor.setFlag(MODULE_ID, IN_USE_FLAG, targetInUse);
-
-                    const targetList = html.find(`[data-roster-list="${targetInUse}"]`);
-                    const moveButton = rosterRow.find(".hero-points-roster-move");
-                    moveButton.attr("data-target-in-use", String(!targetInUse));
-                    moveButton.html(targetInUse
-                        ? '<i class="fas fa-arrow-down"></i> Move out'
-                        : '<i class="fas fa-arrow-up"></i> Move in');
-                    targetList.prepend(rosterRow.detach());
-                    sortRows(targetList, ".hero-points-roster-row");
-
-                    const existingAwardRow = awardList.find(`.hero-points-award-row[data-actor-id="${actorId}"]`);
-                    if (targetInUse && !existingAwardRow.length) {
-                        awardList.prepend($(awardRowMarkup(actor, max)));
-                        sortRows(awardList, ".hero-points-award-row");
-                    } else if (!targetInUse) {
-                        existingAwardRow.remove();
-                    }
-
-                    updateRosterCounts();
-                } catch (error) {
-                    ui.notifications?.error(`Could not update ${actor.name}'s roster status.`);
-                    console.error(`${MODULE_ID} | Could not update roster status:`, error);
-                } finally {
-                    rosterRow.removeClass("saving");
-                }
-            }
-
-            html.find("[data-tab]").on("click", (event) => {
-                const tab = event.currentTarget.dataset.tab;
-                html.find("[data-tab]").removeClass("active").attr("aria-selected", "false");
-                $(event.currentTarget).addClass("active").attr("aria-selected", "true");
-                html.find("[data-panel]").prop("hidden", true);
-                html.find(`[data-panel="${tab}"]`).prop("hidden", false);
-                resizeManagerDialog();
-            });
-
-            html.find("details").on("toggle", resizeManagerDialog);
-
-            html.find("[data-select-awards]").on("click", (event) => {
-                const checked = event.currentTarget.dataset.selectAwards === "all";
-                awardList.find("input[name='actor']").prop("checked", checked);
+            if (target.matches("[data-select-awards]")) {
+                const checked = target.dataset.selectAwards === "all";
+                for (const input of awardList.querySelectorAll("input[name='actor']")) input.checked = checked;
                 updateAwardSelection();
-            });
+                return;
+            }
 
-            html.on("change", ".hero-points-award-row input[name='actor']", updateAwardSelection);
+            if (target.matches("[data-amount-step]")) {
+                const input = query('input[name="amount"]');
+                const current = Number(input?.value) || 0;
+                const step = Number(target.dataset.amountStep) || 0;
+                if (input) input.value = String(Math.min(max, Math.max(-max, current + step)));
+                return;
+            }
 
-            html.find("[data-amount-step]").on("click", (event) => {
-                const input = html.find('input[name="amount"]');
-                const current = Number(input.val()) || 0;
-                const step = Number(event.currentTarget.dataset.amountStep) || 0;
-                input.val(Math.min(max, Math.max(-max, current + step)));
-            });
-
-            html.find('input[name="mode"]').on("change", () => {
-                if (!html.find(".hero-points-apply-award").is(".hero-points-award-success, .hero-points-award-limit")) {
-                    restoreAwardButtonLabel();
-                }
-            });
-
-            html.find(".hero-points-apply-award").on("click", async () => {
-                const form = html[0].querySelector("form.hero-points-manager");
+            if (target.matches(".hero-points-apply-award")) {
+                const form = managerDialog.form;
                 if (!form) return;
 
                 const formData = new FormData(form);
                 const mode = formData.get("mode") || "add";
                 const kind = formData.get("kind") || "persistent";
                 const amount = Number(formData.get("amount") || 0);
-                const actorIds = Array.from(form.querySelectorAll(".hero-points-award-row input[name='actor']:checked"))
+                const actorIds = Array.from(awardList.querySelectorAll("input[name='actor']:checked"))
                     .map((input) => input.value);
 
                 if (!actorIds.length) {
@@ -747,9 +789,8 @@ function openHeroPointsDialog() {
                 }
 
                 const affectedNames = [];
-                const applyButton = html.find(".hero-points-apply-award");
                 clearAwardFeedback();
-                applyButton.prop("disabled", true);
+                target.disabled = true;
 
                 try {
                     for (const id of actorIds) {
@@ -783,55 +824,69 @@ function openHeroPointsDialog() {
                 } finally {
                     updateAwardSelection();
                 }
-            });
+                return;
+            }
 
-            html.find(".hero-points-session-start").on("click", () => {
+            if (target.matches(".hero-points-session-start")) {
                 clearSessionStartFeedback();
-                openSessionStartDialog(({ changedActorIds }) => {
-                    showSessionStartFeedback(changedActorIds);
-                });
-            });
+                openSessionStartDialog(({ changedActorIds }) => showSessionStartFeedback(changedActorIds));
+                return;
+            }
 
-            html.on("click", ".hero-points-roster-move", (event) => {
-                const row = $(event.currentTarget).closest(".hero-points-roster-row");
-                moveRosterActor(row.attr("data-actor-id"), event.currentTarget.dataset.targetInUse === "true");
-            });
+            if (target.matches(".hero-points-roster-move")) {
+                const row = target.closest(".hero-points-roster-row");
+                await moveRosterActor(row?.dataset.actorId, target.dataset.targetInUse === "true");
+            }
+        });
 
-            html.on("dragstart", ".hero-points-roster-row", (event) => {
-                const dragEvent = event.originalEvent;
-                dragEvent.dataTransfer.setData("text/plain", event.currentTarget.dataset.actorId);
-                dragEvent.dataTransfer.effectAllowed = "move";
-                $(event.currentTarget).addClass("dragging");
-            });
+        html.addEventListener("change", (event) => {
+            if (event.target.matches(".hero-points-award-row input[name='actor']")) updateAwardSelection();
+            if (event.target.matches('input[name="mode"]')) {
+                const applyButton = query(".hero-points-apply-award");
+                if (!applyButton?.matches(".hero-points-award-success, .hero-points-award-limit")) {
+                    restoreAwardButtonLabel();
+                }
+            }
+        });
 
-            html.on("dragend", ".hero-points-roster-row", (event) => {
-                $(event.currentTarget).removeClass("dragging");
-                html.find(".hero-points-roster-section").removeClass("drag-over");
-            });
+        for (const details of queryAll("details")) details.addEventListener("toggle", resizeManagerDialog);
 
-            html.on("dragover", ".hero-points-roster-section", (event) => {
-                event.preventDefault();
-                event.originalEvent.dataTransfer.dropEffect = "move";
-                html.find(".hero-points-roster-section").removeClass("drag-over");
-                $(event.currentTarget).addClass("drag-over");
-            });
+        html.addEventListener("dragstart", (event) => {
+            const row = event.target.closest?.(".hero-points-roster-row");
+            if (!row || !event.dataTransfer) return;
+            event.dataTransfer.setData("text/plain", row.dataset.actorId);
+            event.dataTransfer.effectAllowed = "move";
+            row.classList.add("dragging");
+        });
 
-            html.on("drop", ".hero-points-roster-section", (event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                const section = $(event.currentTarget);
-                const actorId = event.originalEvent.dataTransfer.getData("text/plain");
-                html.find(".hero-points-roster-section").removeClass("drag-over");
-                moveRosterActor(actorId, section.attr("data-in-use") === "true");
-            });
+        html.addEventListener("dragend", (event) => {
+            event.target.closest?.(".hero-points-roster-row")?.classList.remove("dragging");
+            for (const section of queryAll(".hero-points-roster-section")) section.classList.remove("drag-over");
+        });
 
-            updateAwardSelection();
-        }
-    }, {
-        width: 640,
-        classes: ["hero-points-manager-dialog"]
-    });
-    managerDialog.render(true);
+        html.addEventListener("dragover", (event) => {
+            const section = event.target.closest?.(".hero-points-roster-section");
+            if (!section) return;
+            event.preventDefault();
+            if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+            for (const candidate of queryAll(".hero-points-roster-section")) candidate.classList.remove("drag-over");
+            section.classList.add("drag-over");
+        });
+
+        html.addEventListener("drop", (event) => {
+            const section = event.target.closest?.(".hero-points-roster-section");
+            if (!section || !event.dataTransfer) return;
+            event.preventDefault();
+            event.stopPropagation();
+            const actorId = event.dataTransfer.getData("text/plain");
+            for (const candidate of queryAll(".hero-points-roster-section")) candidate.classList.remove("drag-over");
+            moveRosterActor(actorId, section.dataset.inUse === "true");
+        });
+
+        updateAwardSelection();
+    }, { once: true });
+
+    managerDialog.render({ force: true });
 }
 
 export function sessionStartMarkup(actors, maximum) {
@@ -893,13 +948,16 @@ function openSessionStartDialog(onComplete) {
     }
 
     const max = getMaxHeroPoints();
-    new Dialog({
-        title: "Start Hero Point Session",
-        content: sessionStartMarkup(actors, max),
-        buttons: {
-            start: {
+    const DialogV2 = getDialogV2();
+    const sessionDialog = new DialogV2({
+        window: { title: "Start Hero Point Session" },
+        content: createElementFromMarkup(sessionStartMarkup(actors, max)),
+        buttons: [
+            { action: "cancel", label: "Cancel" },
+            {
+                action: "start",
                 label: "Start Session",
-                icon: '<i class="fas fa-play"></i>',
+                default: true,
                 callback: async () => {
                     const resetNames = [];
                     const atMaximumNames = [];
@@ -936,16 +994,13 @@ function openSessionStartDialog(onComplete) {
 
                     await onComplete?.({ changedActorIds, resetNames, atMaximumNames });
                 }
-            },
-            cancel: {
-                label: "Cancel"
             }
-        },
-        default: "start"
-    }, {
-        width: 480,
-        classes: ["hero-points-session-start-dialog"]
-    }).render(true);
+        ],
+        classes: ["hero-points-session-start-dialog"],
+        position: { width: 480, height: "auto" }
+    });
+
+    sessionDialog.render({ force: true });
 }
 
 /* ----------------- INJECTION LOGIC ----------------- */
@@ -978,77 +1033,61 @@ function injectHeroPointsGeneric(sheet, element, meta = {}) {
             return;
         }
 
-        // Wrap HTMLElement in jQuery
-        const html = element instanceof jQuery ? element : $(element);
-        if (!html.length) {
+        const hookElement = getRenderElement(element);
+        const sheetElement = getRenderElement(sheet.element);
+        const html = hookElement?.querySelector(".sheet-header") ? hookElement : (sheetElement || hookElement);
+        if (!html) {
             log("HTML root is empty, aborting.");
             return;
         }
 
-        // Try to hide the big inspiration medallion in the header
-        const inspMedal = html.find(
-            '.sheet-header [data-application-action="inspiration"], ' +
-            '.sheet-header [data-action="inspiration"], ' +
-            '.sheet-header [data-tooltip*="Inspiration"], ' +
-            '.sheet-header [aria-label*="Inspiration"]'
-        ).first();
-
-        if (inspMedal.length) {
-            log("Hiding inspiration medallion:", inspMedal[0]);
-            inspMedal.hide();
-        }
-
         // Remove previous widget on re-render
-        html.find(".hero-points-counter").remove();
+        for (const counter of html.querySelectorAll(".hero-points-counter")) counter.remove();
 
-        let anchor = null;
-
-        // --- Primary target: header inspiration star button ---
-        let starIcon = html.find(".sheet-header button i.fa-star").first();
-        if (starIcon.length) {
-            const starButton = starIcon.closest("button");
-            if (starButton.length) {
-                log("Found header inspiration star button:", starButton[0]);
-                starButton.hide();          // hide original inspiration control
-                anchor = starButton;
-            }
+        // DnD5e 5.3 (the first V14-compatible release) uses the inspiration
+        // button selector below. The remaining selectors preserve V13 support.
+        let anchor = html.querySelector(INSPIRATION_CONTROL_SELECTOR);
+        if (!anchor) {
+            anchor = html.querySelector(".sheet-header button i.fa-star")?.closest("button") || null;
         }
 
-        // (Optional) other searches for legacy inspiration UI could go here
-        // but for v3.3.1 the header star is the main one we care about.
+        if (anchor) {
+            log("Hiding inspiration control:", anchor);
+            anchor.classList.add("hero-points-original-hidden");
+        }
 
         // Fallback header area if we didn't find a star button
-        if (!anchor || !anchor.length) {
-            anchor = html.find(".sheet-header .attributes, .sheet-header .resources, .sheet-header .summary").first();
-            if (!anchor.length) {
-                anchor = html.find(".sheet-header").first();
-            }
-            if (anchor.length) {
-                log("Using fallback header anchor:", anchor[0]);
+        if (!anchor) {
+            anchor = html.querySelector(
+                ".sheet-header .right, .sheet-header .attributes, .sheet-header .resources, " +
+                ".sheet-header .summary, .sheet-header"
+            );
+            if (anchor) {
+                log("Using fallback header anchor:", anchor);
             } else {
                 log("No suitable anchor found; hero points widget not injected.");
                 return;
             }
         }
 
-        const canEdit = game.user.isGM;
-        const heroEl = createHeroPointsElement(actor, canEdit);
+        const heroEl = createHeroPointsElement(actor);
 
         // If anchor is one of the header containers, append; otherwise insert after
         if (
-            anchor.hasClass("sheet-header") ||
-            anchor.hasClass("attributes") ||
-            anchor.hasClass("resources") ||
-            anchor.hasClass("summary")
+            anchor.classList.contains("sheet-header") ||
+            anchor.classList.contains("right") ||
+            anchor.classList.contains("attributes") ||
+            anchor.classList.contains("resources") ||
+            anchor.classList.contains("summary")
         ) {
             anchor.append(heroEl);
         } else {
-            heroEl.insertAfter(anchor);
+            anchor.insertAdjacentElement("afterend", heroEl);
         }
 
         log("Hero points widget injected for actor:", actor.name);
 
-        attachHeroPointsListeners(sheet, html);
+        attachHeroPointsListeners(sheet, heroEl);
     } catch (err) {
         console.error(`${MODULE_ID} | Error in injectHeroPointsGeneric:`, err);
     }
@@ -1082,7 +1121,7 @@ Hooks.once("ready", async () => {
 });
 
 /**
- * Use the V2 sheet hook for DnD5e 3.x.
+ * ApplicationV2 sheet hook used by the current DnD5e character sheet.
  */
 Hooks.on("renderActorSheetV2", (sheet, element, data) => {
     injectHeroPointsGeneric(sheet, element, { hook: "renderActorSheetV2" });
@@ -1094,17 +1133,23 @@ Hooks.on("renderActorSheetV2", (sheet, element, data) => {
 Hooks.on("renderActorDirectory", (app, html, data) => {
     if (!game.user.isGM) return;
 
-    const footer = html.find(".directory-footer");
-    if (!footer.length) return;
+    const root = getRenderElement(html) || getRenderElement(app.element);
+    if (!root) return;
 
-    if (!footer.find(".hero-points-manager-open").length) {
-        const manageButton = $(`
+    const footerSelector = '[data-application-part="footer"], .directory-footer, footer.directory-footer, footer';
+    const footer = root.matches(footerSelector)
+        ? root
+        : root.querySelector(footerSelector);
+    if (!footer) return;
+
+    if (!root.querySelector(".hero-points-manager-open")) {
+        const manageButton = createElementFromMarkup(`
       <button type="button" class="hero-points-manager-open">
         <i class="fas fa-star"></i> Hero Points
       </button>
     `);
 
-        manageButton.on("click", (event) => {
+        manageButton.addEventListener("click", (event) => {
             event.preventDefault();
             openHeroPointsDialog();
         });

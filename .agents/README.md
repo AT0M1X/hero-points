@@ -17,7 +17,7 @@ Hero Points is a small Foundry Virtual Tabletop module for the DnD5e system. It 
 ## Development notes
 
 - The module id and installed folder name must remain `hero-points`.
-- The code runs inside Foundry and intentionally uses Foundry globals such as `Hooks`, `game`, `ui`, `ChatMessage`, `Dialog`, and `Actor`, plus the jQuery global `$`.
+- The code runs inside Foundry and intentionally uses Foundry globals such as `Hooks`, `game`, `ui`, `ChatMessage`, and `foundry.applications.api.DialogV2`. UI integration uses native DOM APIs because V14 hook elements are `HTMLElement` instances; do not reintroduce a jQuery dependency.
 - Hero-point values are stored on actors in the `hero-points.state` flag as `{ persistent, ephemeral }`. Older `hero-points.points` totals migrate to persistent points.
 - Character roster status is stored in `hero-points.inUse`.
 - The manager includes Award Points and Manage Roster tabs. Award Points contains only active actors; Manage Roster contains every DnD5e character-type actor and persists moves immediately.
@@ -27,6 +27,7 @@ Hero Points is a small Foundry Virtual Tabletop module for the DnD5e system. It 
 - Ephemeral points are always spent first. Positive persistent awards may replace ephemeral points at the maximum, but ephemeral awards never replace persistent points.
 - The character-sheet header uses a compact star and total pill. Hovering or keyboard-focusing it shows a labeled Hero Points card with one visual slot per point of maximum capacity (ephemeral first, persistent second, then unused capacity) and pool counts beneath. Spending temporarily holds the card open with a color-coded confirmation before returning to the updated breakdown.
 - Preserve the DnD5e-only guard and character-only guard when changing sheet injection behavior.
+- DnD5e 5.3+ renders inspiration as `button.inspiration[data-action="toggleInspiration"]`; keep that selector first while preserving the legacy fallbacks used for V13.
 - Do not claim compatibility with a Foundry or DnD5e version until it has been exercised in that version.
 - Run `node --test` after changing point-state rules or manager markup.
 - Run `node tools/validate-package.mjs` before committing manifest or release changes.

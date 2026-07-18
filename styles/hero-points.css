@@ -1,5 +1,5 @@
-/* Hide original inspiration container, if our class is applied */
-.dnd5e.sheet.actor.character .hero-points-original-hidden {
+/* Hide the inspiration control after the replacement is mounted. */
+.hero-points-original-hidden {
     display: none !important;
 }
 
@@ -343,12 +343,14 @@
 
 /* Hide header inspiration control in case JS misses it */
 .dnd5e.sheet.actor.character .sheet-header [data-application-action="inspiration"],
-.dnd5e.sheet.actor.character .sheet-header [data-action="inspiration"] {
+.dnd5e.sheet.actor.character .sheet-header [data-action="inspiration"],
+.dnd5e.sheet.actor.character .sheet-header button.inspiration[data-action="toggleInspiration"] {
     display: none !important;
 }
 
 /* Hero Points manager */
-.hero-points-manager-dialog .dialog-buttons {
+.hero-points-manager-dialog .dialog-buttons,
+.hero-points-manager-dialog .form-footer {
     flex: 0 0 auto !important;
     height: auto !important;
     min-height: 32px;
@@ -357,7 +359,8 @@
     border-top: 1px solid var(--color-border-light-2, rgba(0, 0, 0, 0.2));
 }
 
-.hero-points-manager-dialog .dialog-buttons .dialog-button {
+.hero-points-manager-dialog .dialog-buttons .dialog-button,
+.hero-points-manager-dialog .form-footer button {
     height: 32px;
     min-height: 32px;
     border-radius: 6px;
@@ -365,7 +368,8 @@
     transition: border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
 }
 
-.hero-points-manager-dialog .dialog-buttons .dialog-button:hover {
+.hero-points-manager-dialog .dialog-buttons .dialog-button:hover,
+.hero-points-manager-dialog .form-footer button:hover {
     border-color: var(--color-warm-2, #9b6b1f);
     background: rgba(155, 107, 31, 0.1);
     box-shadow: 0 0 5px rgba(155, 107, 31, 0.18);
@@ -1287,25 +1291,29 @@
     color: var(--hero-points-dialog-gold);
 }
 
-.hero-points-session-start-dialog .dialog-buttons {
+.hero-points-session-start-dialog .dialog-buttons,
+.hero-points-session-start-dialog .form-footer {
     gap: 6px;
     margin-top: 12px;
     padding-top: 9px;
     border-top: 1px solid var(--color-border-light-2, rgba(0, 0, 0, 0.2));
 }
 
-.hero-points-session-start-dialog .dialog-button {
+.hero-points-session-start-dialog .dialog-button,
+.hero-points-session-start-dialog .form-footer button {
     min-height: 34px;
     border-radius: 6px;
     transition: border-color 140ms ease, background 140ms ease, box-shadow 140ms ease, transform 140ms ease;
 }
 
-.hero-points-session-start-dialog .dialog-button:hover {
+.hero-points-session-start-dialog .dialog-button:hover,
+.hero-points-session-start-dialog .form-footer button:hover {
     transform: translateY(-1px);
 }
 
 .hero-points-session-start-dialog .dialog-button.start,
-.hero-points-session-start-dialog .dialog-button[data-button="start"] {
+.hero-points-session-start-dialog .dialog-button[data-button="start"],
+.hero-points-session-start-dialog .form-footer button[data-action="start"] {
     border-color: var(--color-warm-2, #9b6b1f);
     background: linear-gradient(180deg, rgba(193, 138, 50, 0.92), rgba(143, 89, 24, 0.96));
     color: white;
@@ -1314,7 +1322,8 @@
 }
 
 .hero-points-session-start-dialog .dialog-button.start:hover,
-.hero-points-session-start-dialog .dialog-button[data-button="start"]:hover {
+.hero-points-session-start-dialog .dialog-button[data-button="start"]:hover,
+.hero-points-session-start-dialog .form-footer button[data-action="start"]:hover {
     border-color: #d6a744;
     background: linear-gradient(180deg, rgba(214, 167, 68, 0.96), rgba(155, 107, 31, 0.98));
     box-shadow: 0 0 8px rgba(193, 138, 50, 0.3);
@@ -1360,7 +1369,8 @@
         animation: none;
     }
 
-    .hero-points-session-start-dialog .dialog-button {
+    .hero-points-session-start-dialog .dialog-button,
+    .hero-points-session-start-dialog .form-footer button {
         transition: none;
     }
 }

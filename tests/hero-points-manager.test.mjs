@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 globalThis.Hooks = {
@@ -56,6 +57,8 @@ test("manager separates award and roster concerns", () => {
     );
 
     assert.match(markup, /Award Points/);
+    assert.match(markup, /^<div class="hero-points-manager">/);
+    assert.doesNotMatch(markup, /<form class="hero-points-manager">/);
     assert.match(markup, /Manage Roster/);
     assert.match(markup, /Start Session/);
     assert.match(awardPanel, /Active Hero/);
@@ -69,6 +72,17 @@ test("manager separates award and roster concerns", () => {
     assert.match(markup, /Retired Hero/);
     assert.match(markup, /<details class="hero-points-roster-section hero-points-inactive-section"/);
     assert.doesNotMatch(markup, /hero-points-inactive-section"[^>]* open/);
+});
+
+test("Foundry V14 integration uses native DOM and DialogV2 APIs", async () => {
+    const source = await readFile(new URL("../scripts/hero-points.js", import.meta.url), "utf8");
+
+    assert.match(source, /foundry\?\.applications\?\.api\?\.DialogV2/);
+    assert.match(source, /button\.inspiration\[data-action="toggleInspiration"\]/);
+    assert.match(source, /data-application-part="footer"/);
+    assert.doesNotMatch(source, /\bjQuery\b/);
+    assert.doesNotMatch(source, /\$\(/);
+    assert.doesNotMatch(source, /\bnew Dialog\s*\(/);
 });
 
 test("character-sheet slots show session, persistent, and empty capacity", () => {
